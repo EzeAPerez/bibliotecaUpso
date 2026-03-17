@@ -91,6 +91,8 @@ class ObraCreate(SQLModel):
     institucion: str | None = Field(default=None, max_length=100)
     nivel_academico: str | None = Field(default=None, max_length=100)
 
+    subareas: List[int] = Field(default_factory=list)
+
 class Subarea(SQLModel):
     id: int
     nombre: str

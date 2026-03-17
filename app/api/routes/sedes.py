@@ -168,7 +168,7 @@ def eliminar_sede(
         conexion.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error de integridad en la base de datos."
+            detail="No se puede eliminar la sede porque tiene libros asociados"
         )
 
 @router.get(

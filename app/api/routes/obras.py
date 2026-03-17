@@ -123,7 +123,7 @@ router = APIRouter(
 )
 
 @router.post(
-    "/",
+    "",
     status_code=status.HTTP_201_CREATED,
     response_model=int,
     summary="Crear obra",
@@ -232,6 +232,9 @@ def eliminar_obras(
     cursor = conexion.cursor(dictionary=True)
 
     try:
+        cursor.execute("DELETE FROM obra_subarea_tematica WHERE id_obra = %s", (id,))
+        conexion.commit()
+        
         cursor.execute("DELETE FROM obras WHERE id = %s", (id,))
         conexion.commit()
 
