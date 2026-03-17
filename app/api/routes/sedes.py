@@ -47,13 +47,13 @@ async def crear_sede(
         
         cursor.execute(query, (nueva_sede.nombre,))
 
-        id_area = cursor.lastrowid
+        id = cursor.lastrowid
         conexion.commit()
 
         cursor.close()
         conexion.close()
 
-        return id_area
+        return id
 
     except IntegrityError as e:
         conexion.rollback()

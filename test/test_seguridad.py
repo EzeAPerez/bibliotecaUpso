@@ -50,7 +50,7 @@ def test_acceso_con_token():
     token = login.json()["access_token"]
 
     response = client.get(
-        "/test-auth",
+        "/login/test-auth",
         headers={
             "Authorization": f"Bearer {token}"
         }
@@ -60,14 +60,14 @@ def test_acceso_con_token():
 
 def test_sin_token():
 
-    response = client.get("/test-auth")
+    response = client.get("/login/test-auth")
 
     assert response.status_code == 401
 
 def test_token_invalido():
 
     response = client.get(
-        "/test-auth",
+        "/login/test-auth",
         headers={
             "Authorization": "Bearer token_falso"
         }
@@ -88,7 +88,7 @@ def test_rol_incorrecto():
     token = login.json()["access_token"]
 
     response = client.get(
-        "/ruta-admin",
+        "/login/ruta-admin",
         headers={
             "Authorization": f"Bearer {token}"
         }
@@ -109,7 +109,7 @@ def test_ip_distinta():
     token = login.json()["access_token"]
 
     response = client.get(
-        "/test-auth",
+        "/login/test-auth",
         headers={
             "Authorization": f"Bearer {token}"
         }
