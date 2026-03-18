@@ -90,38 +90,47 @@ def modificar_subarea_tematica(
         raise HTTPException(status_code=500, detail="Error de conexion")
 
     cursor = conexion.cursor(dictionary=True)
+    cursor.execute("SELECT id FROM subarea_tematica WHERE id = %s", (id,))
+    sede = cursor.fetchone()
+
+    if not sede:
+        raise HTTPException(
+            status_code=404,
+            detail="Subarea tematica no encontrada."
+        )
 
     try:
         query = """
             UPDATE subarea_tematica
-            SET nombre = %s, id_area = %s
+            SET nombre = %s, id_area_tematica = %s
             WHERE id = %s
         """
 
-        cursor.execute(query, (subarea_update.nombre, subarea_update.id_area, id))
+        cursor.execute(query, (subarea_update.nombre, subarea_update.id_area_tematica, id))
         conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Subárea temática no encontrada"
-            )
-
-        cursor.close()
-        conexion.close()
 
         return {
             "id": id,
             "nombre": subarea_update.nombre,
-            "id_area": subarea_update.id_area
+            "id_area_tematica": subarea_update.id_area_tematica
         }
 
-    except IntegrityError:
+    except IntegrityError as e:
         conexion.rollback()
+
+        if e.errno == errorcode.ER_DUP_ENTRY:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Ya existe un subarea tematica con el nombre: {subarea_update.nombre} y {subarea_update.id_area_tematica}"
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
+    
+    finally:
+        cursor.close()
+        conexion.close()
 
 @router.delete(
     "/{id}",
@@ -145,7 +154,7 @@ def eliminar_subarea_tematica(
         conexion.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Subárea temática no encontrada")
+            raise HTTPException(status_code=404, detail="Subárea temática no encontrada.")
 
         cursor.close()
         conexion.close()
@@ -219,7 +228,7 @@ def get_subarea_tematica_id(
         if resultados is None or len(resultados) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subárea temática no encontrada"
+                detail="Subárea temática no encontrada."
             )
         else:
             raise HTTPException(

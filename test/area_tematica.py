@@ -222,7 +222,7 @@ def test_obtener_area_tematica(auth_headers):
 """
 Pruebas para el endpoint GET /area_tematica/{id}:
 1. test_obtener_area_tematica_: Verifica que se pueda obtener un area tematica existente por su id.
-2. test_obtener_sede_no_existente: Verifica que no se pueda obtener un area tematica que no existe.
+2. test_obtener_area_no_existente: Verifica que no se pueda obtener un area tematica que no existe.
 """
 def test_obtener_area_tematica_id(auth_headers):
     response = client.post(
