@@ -91,7 +91,15 @@ def modificar_sede(
         raise HTTPException(status_code=500, detail="Error de conexion")
 
     cursor = conexion.cursor(dictionary=True)
+    cursor.execute("SELECT id FROM sedes WHERE id = %s", (id,))
+    sede = cursor.fetchone()
 
+    if not sede:
+        raise HTTPException(
+            status_code=404,
+            detail="Sede no encontrada."
+        )
+    
     try:
         query = """
             UPDATE sedes
@@ -101,16 +109,7 @@ def modificar_sede(
 
         cursor.execute(query, (sede_update.nombre, id))
         conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Sede no encontrada o no modificada"
-            )
-
-        cursor.close()
-        conexion.close()
-
+        
         return {
             "id": id,
             "nombre": sede_update.nombre

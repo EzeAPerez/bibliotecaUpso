@@ -62,9 +62,9 @@ def crear_subarea_tematica(
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe un subarea tematica con el nombre: {nueva_subarea.nombre}"
+                detail=f"Ya existe un subarea tematica con el nombre: {nueva_subarea.nombre} y {nueva_subarea.id_area_tematica}"
             )
-
+        
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error de integridad: {e.msg}"
@@ -73,43 +73,6 @@ def crear_subarea_tematica(
     finally:
         cursor.close()
         conexion.close()
-
-@router.delete(
-    "/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Eliminar subárea temática",
-    description="Eliminar una subárea temática específica de la base de datos por su ID. Solo accesible para SuperAdmin.",
-    tags=[router.tags[0]]
-)
-def eliminar_subarea_tematica(
-    id: int,
-    user = Depends(allow_super_admin)
-):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    try:
-        cursor.execute("DELETE FROM subarea_tematica WHERE id = %s", (id,))
-        conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Subárea temática no encontrada")
-
-        cursor.close()
-        conexion.close()
-
-        return None
-
-    except IntegrityError as e:
-        conexion.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error de integridad en la base de datos."
-        )
-
 
 @router.patch(
     "/{id}",
@@ -154,6 +117,42 @@ def modificar_subarea_tematica(
         }
 
     except IntegrityError:
+        conexion.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error de integridad en la base de datos."
+        )
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar subárea temática",
+    description="Eliminar una subárea temática específica de la base de datos por su ID. Solo accesible para SuperAdmin.",
+    tags=[router.tags[0]]
+)
+def eliminar_subarea_tematica(
+    id: int,
+    user = Depends(allow_super_admin)
+):
+    conexion = get_connection()
+    if not conexion:
+        raise HTTPException(status_code=500, detail="Error de conexion")
+
+    cursor = conexion.cursor(dictionary=True)
+
+    try:
+        cursor.execute("DELETE FROM subarea_tematica WHERE id = %s", (id,))
+        conexion.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Subárea temática no encontrada")
+
+        cursor.close()
+        conexion.close()
+
+        return None
+
+    except IntegrityError as e:
         conexion.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

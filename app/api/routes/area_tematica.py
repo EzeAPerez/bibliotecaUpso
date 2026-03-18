@@ -73,6 +73,65 @@ def crear_area_tematica(
         cursor.close()
         conexion.close()
 
+
+@router.patch(
+    "/{id}",
+    response_model=AreaTematica,
+    summary="Modificar área temática",
+    description="Modificar el contenido de una área temática con id pasado por parametro. Solo accesible para SuperAdmin.",
+    tags=[router.tags[0]]
+)
+def modificar_area_tematica(
+    id: int,
+    area_update: UpdateAreaTematica,
+    user = Depends(allow_super_admin)
+):
+    conexion = get_connection()
+    if not conexion:
+        raise HTTPException(status_code=500, detail="Error de conexion")
+
+    cursor = conexion.cursor(dictionary=True)
+    cursor.execute("SELECT id FROM area_tematica WHERE id = %s", (id,))
+    sede = cursor.fetchone()
+
+    if not sede:
+        raise HTTPException(
+            status_code=404,
+            detail="Area tematica no encontrada."
+        )
+    
+    try:
+        query = """
+            UPDATE area_tematica
+            SET nombre = %s
+            WHERE id = %s
+        """
+
+        cursor.execute(query, (area_update.nombre, id))
+        conexion.commit()
+
+        return {
+            "id": id,
+            "nombre": area_update.nombre
+        }
+
+    except IntegrityError as e:
+        conexion.rollback()
+
+        if e.errno == errorcode.ER_DUP_ENTRY:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya existe un area tematica con esos datos."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error de integridad en la base de datos."
+        )
+    
+    finally:
+        cursor.close()
+        conexion.close()
+
 @router.delete(
     "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -95,7 +154,7 @@ def eliminar_area_tematica(
         conexion.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Área temática no encontrada")
+            raise HTTPException(status_code=404, detail="Área temática no encontrada.")
 
         cursor.close()
         conexion.close()
@@ -109,55 +168,6 @@ def eliminar_area_tematica(
             detail="Error de integridad en la base de datos."
         )
 
-
-@router.patch(
-    "/{id}",
-    response_model=AreaTematica,
-    summary="Modificar área temática",
-    description="Modificar el contenido de una área temática con id pasado por parametro. Solo accesible para SuperAdmin.",
-    tags=[router.tags[0]]
-)
-def modificar_area_tematica(
-    id: int,
-    area_update: UpdateAreaTematica,
-    user = Depends(allow_super_admin)
-):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    try:
-        query = """
-            UPDATE area_tematica
-            SET nombre = %s
-            WHERE id = %s
-        """
-
-        cursor.execute(query, (area_update.nombre, id))
-        conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Área temática no encontrada"
-            )
-
-        cursor.close()
-        conexion.close()
-
-        return {
-            "id": id,
-            "nombre": area_update.nombre
-        }
-
-    except IntegrityError:
-        conexion.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error de integridad en la base de datos."
-        )
 
 @router.get(
     "",
@@ -219,7 +229,7 @@ def get_area_tematica_id(
         if resultados is None or len(resultados) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subárea temática no encontrada"
+                detail="Area temática no encontrada."
             )
         else:
             raise HTTPException(
