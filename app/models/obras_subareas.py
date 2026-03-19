@@ -6,6 +6,15 @@ class obrasysubareas(SQLModel, table=True):
     id_obra: int = Field(foreign_key="obras.id", primary_key=True)
     id_subarea: int = Field(foreign_key="subarea_tematica.id", primary_key=True)
 
+class ObraYSubarea(SQLModel):
+    id_obra: int
+    id_subarea: int
+
+class ModificarObraYSubarea(SQLModel):
+    id_obra: int
+    id_subarea: int
+    id_subarea_nueva: int
+
 class ObrasySubareasDetallado(SQLModel):
     id_obra: int
     id_subarea: int
