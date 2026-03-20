@@ -551,7 +551,7 @@ def get_obras_sede(
     )
 
 @router.get(
-    "/cantidad",
+    "/cantidad/",
     response_model=int,
     summary="Obtener la cantidad de obras",
     description="Obtener la cantidad de obras almacenadas en la base de datos. Accesible para todos los usuarios.",
@@ -706,7 +706,7 @@ def get_cantidad_obras_area_tematica(
     return total
 
 @router.get(
-    "/sub_area_tematica/{id_subarea}/cantidad",
+    "/subarea_tematica/{id_subarea}/cantidad",
     response_model=int,
     summary="Cantidad de obras por subarea tematica",
     description="Obtener la cantidad de obras almacenadas en la base de datos de un subarea tematica expecifico. Accesible para todos los usuarios.",

@@ -650,3 +650,145 @@ def test_obtener_obras_sede_no_existente(auth_headers):
     data = response.json()
     assert isinstance(data, list)
     assert data == []
+
+"""
+Pruebas para el endpoint GET /obras/cantidad
+1. test_obtener_cantidad_obras: Verificar que se puedan obtener la cantidad de todas las obras.
+"""
+
+def test_obtener_cantidad_obras(auth_headers):
+    response = client.get(
+        "/obras",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        "/obras/cantidad/",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
+
+"""
+Pruebas para el endpoint GET /obras/buscar/cantidad
+1. test_obtener_cantidad_obras_buscar: Verificar que se puedan obtener la cantidad de todas las obras filtrando con el buscar.
+"""
+def test_obtener_cantidad_obras_buscar(auth_headers):
+    response = client.post("/obras", json={
+        "codigo_fisico" : "obra_test",
+        "titulo" : "titulo test",
+        "id_tipo_material" : 1,
+        "id_sede" : 1,
+        "id_estado" : 1
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 201
+    id_obra = response.json()
+
+    response = client.get(
+        "/obras/buscar/",
+        params={"q": "test"},
+        headers=auth_headers  
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        "/obras/buscar/cantidad",
+        params={"q" : "test"},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
+
+    resposne = client.delete(
+        f"/obras/{id_obra}",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+
+
+"""
+Pruebas para el endpoint GET /obras/tipo/{id_tipo}/cantidad
+1. test_obtener_cantidad_obras_tipo: Verificar que se puedan obtener la cantidad de todas las obras filtrando con el tipo de material.
+"""
+
+def test_obtener_cantidad_obras_tipo(auth_headers):
+    response = client.get(
+        f"/obras/tipo/{1}",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        f"/obras/tipo/{1}/cantidad",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
+
+"""
+Pruebas para el endpoint GET /obras/estado/{id_estado}/cantidad
+1. test_obtener_cantidad_obras_estado: Verificar que se puedan obtener la cantidad de todas las obras filtrando con el estdo.
+"""
+
+def test_obtener_cantidad_obras_estado(auth_headers):
+    response = client.get(
+        f"/obras/estado/{1}",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        f"/obras/estado/{1}/cantidad",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
+
+
+"""
+Pruebas para el endpoint GET /obras/area_tematica/{id_area}/cantidad
+1. test_obtener_cantidad_obras_area: Verificar que se puedan obtener la cantidad de todas las obras filtrando con el area tematica.
+"""
+
+def test_obtener_cantidad_obras_area(auth_headers):
+    response = client.get(
+        f"/obras/area_tematica/{1}",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        f"/obras/area_tematica/{1}/cantidad",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
+
+
+"""
+Pruebas para el endpoint GET /obras/subarea_tematica/{id_area}/cantidad
+1. test_obtener_cantidad_obras_subarea: Verificar que se puedan obtener la cantidad de todas las obras filtrando con el subarea tematica.
+"""
+
+def test_obtener_cantidad_obras_area(auth_headers):
+    response = client.get(
+        f"/obras/subarea_tematica/{1}",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    cantidadObras = len(response.json())
+
+    response = client.get(
+        f"/obras/subarea_tematica/{1}/cantidad",
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == cantidadObras
