@@ -100,20 +100,36 @@ def modificar_subarea_tematica(
         )
 
     try:
-        query = """
+        campos = []
+        valores = []
+
+        data = subarea_update.model_dump(exclude_unset=True)
+
+        for campo, valor in data.items():
+            campos.append(f"{campo} = %s")
+            valores.append(valor)
+
+        if not campos:
+            raise HTTPException(
+                status_code=400,
+                detail="No se enviaron campos para actualizar"
+            )
+
+        sql = f"""
             UPDATE subarea_tematica
-            SET nombre = %s, id_area_tematica = %s
+            SET {', '.join(campos)}
             WHERE id = %s
         """
 
-        cursor.execute(query, (subarea_update.nombre, subarea_update.id_area_tematica, id))
-        conexion.commit()
+        valores.append(id)
 
-        return {
-            "id": id,
-            "nombre": subarea_update.nombre,
-            "id_area_tematica": subarea_update.id_area_tematica
-        }
+        cursor.execute(sql, valores)
+        conexion.commit()
+        
+        cursor.execute("SELECT * FROM subarea_tematica WHERE id = %s", (id,))
+        subarea_actualizada = cursor.fetchone()
+
+        return subarea_actualizada
 
     except IntegrityError as e:
         conexion.rollback()
@@ -155,18 +171,25 @@ def eliminar_subarea_tematica(
 
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Subárea temática no encontrada.")
-
-        cursor.close()
-        conexion.close()
-
+        
         return None
 
     except IntegrityError as e:
         conexion.rollback()
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="No se puede eliminar la subárea porque tiene relaciones asociadas"
+            )
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
+
+    finally:
+        cursor.close()
+        conexion.close()
 
 @router.get(
     "",

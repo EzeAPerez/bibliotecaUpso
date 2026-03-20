@@ -37,31 +37,31 @@ class Obras(SQLModel, table=True):
     nivel_academico: Optional[str] = Field(default=None, max_length=150)
 
 class ObraUpdate(SQLModel):
-    id_tipo_material: int = Field(foreign_key="tipo_material.id")
-    codigo_fisico: str = Field(max_length=15)
-    titulo: str = Field(max_length=150)
+    id_tipo_material: Optional[int] = None
+    codigo_fisico: Optional[str] = Field(default=None, max_length=15)
+    titulo: Optional[str] = Field(default=None, max_length=150)
     subtitulo: Optional[str] = Field(default=None, max_length=150)
     formato: Optional[str] = Field(default=None, max_length=50)
-    anio: Optional[int]
+    anio: Optional[int] = None
     autor: Optional[str] = Field(default=None, max_length=255)
     ubicacion_fisica: Optional[str] = Field(default=None, max_length=255)
-    anio_ingreso: Optional[int]
+    anio_ingreso: Optional[int] = None
     tipo_de_ingreso: Optional[str] = Field(default=None, max_length=100)
-    id_sede: int = Field(foreign_key="sedes.id")
-    id_estado: int = Field(default=1, foreign_key="estado_obra.id")
-    
-    ##Libros##
+    id_sede: Optional[int] = None
+    id_estado: Optional[int] = None
+
+    ## Libros ##
     isbn: Optional[str] = Field(default=None, max_length=20)
     edicion: Optional[str] = Field(default=None, max_length=50)
     tomo: Optional[str] = Field(default=None, max_length=20)
     editorial: Optional[str] = Field(default=None, max_length=100)
 
-    ##Revista##
+    ## Revista ##
     issn: Optional[str] = Field(default=None, max_length=15)
     volumen: Optional[str] = Field(default=None, max_length=100)
     numero: Optional[str] = Field(default=None, max_length=100)
 
-    ##Tessis##
+    ## Tesis ##
     institucion: Optional[str] = Field(default=None, max_length=100)
     nivel_academico: Optional[str] = Field(default=None, max_length=100)
 
@@ -84,7 +84,7 @@ class ObraCreate(SQLModel):
     tomo: str | None = Field(default=None, max_length=20)
     editorial: str | None = Field(default=None, max_length=100)
 
-    issn: str = Field(default=None, max_length=15)
+    issn: str | None = Field(default=None, max_length=15)
     volumen: str | None = Field(default=None, max_length=100)
     numero: str | None = Field(default=None, max_length=100)
 

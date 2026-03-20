@@ -156,18 +156,24 @@ def eliminar_area_tematica(
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Área temática no encontrada.")
 
-        cursor.close()
-        conexion.close()
-
         return None
 
     except IntegrityError as e:
         conexion.rollback()
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="No se puede eliminar el área temática porque tiene relaciones asociadas"
+            )
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
 
+    finally:
+        cursor.close()
+        conexion.close()
 
 @router.get(
     "",

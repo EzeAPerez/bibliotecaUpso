@@ -158,17 +158,24 @@ def eliminar_sede(
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Sede no encontrada")
 
-        cursor.close()
-        conexion.close()
-
         return None
 
     except IntegrityError as e:
         conexion.rollback()
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="No se puede eliminar la sede porque tiene obras asociadas"
+            )
+
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se puede eliminar la sede porque tiene libros asociados"
+            status_code=500,
+            detail="Error de integridad en la base de datos"
         )
+    
+    finally:
+        cursor.close()
+        conexion.close()
 
 @router.get(
     "",      

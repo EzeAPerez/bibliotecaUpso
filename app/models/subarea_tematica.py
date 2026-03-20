@@ -15,5 +15,5 @@ class CreateSubAreaTematica(SQLModel):
     id_area_tematica: int
 
 class UpdateSubAreaTematica(SQLModel):
-    nombre: str = Field(max_length=100)
-    id_area_tematica: int
+    nombre: str | None = Field(default=None, max_length=100)
+    id_area_tematica: int | None = None

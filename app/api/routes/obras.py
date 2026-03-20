@@ -214,47 +214,9 @@ def crear_obra(
         conexion.close()
 
 
-@router.delete(
-    "/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Eliminar obra",
-    description="Eliminar una obra específica de la base de datos por su ID. Solo accesible para SuperAdmin.",
-    tags=[router.tags[0]]
-)
-def eliminar_obras(
-    id: int,
-    user = Depends(allow_super_admin)
-):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    try:
-        cursor.execute("DELETE FROM obra_subarea_tematica WHERE id_obra = %s", (id,))
-        conexion.commit()
-        
-        cursor.execute("DELETE FROM obras WHERE id = %s", (id,))
-        conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Obra no encontrada")
-
-        cursor.close()
-        conexion.close()
-
-        return None
-
-    except IntegrityError as e:
-        conexion.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error de integridad en la base de datos."
-        )
-
 @router.patch(
     "/{id}", 
+    status_code=status.HTTP_200_OK,
     response_model=Obras,
     summary="Modificar obra",
     description="Modificar el contenido de una obra con id pasado por parametro. Solo accesible para SuperAdmin.",
@@ -320,7 +282,7 @@ def modificar_obras(
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe una obra con el codigo: {obra_update.codigo}"
+                detail=f"Ya existe una obra con el codigo: {obra_update.codigo_fisico}"
             )
 
         raise HTTPException(
@@ -331,6 +293,45 @@ def modificar_obras(
     finally:
         cursor.close()
         conexion.close() 
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar obra",
+    description="Eliminar una obra específica de la base de datos por su ID. Solo accesible para SuperAdmin.",
+    tags=[router.tags[0]]
+)
+def eliminar_obras(
+    id: int,
+    user = Depends(allow_super_admin)
+):
+    conexion = get_connection()
+    if not conexion:
+        raise HTTPException(status_code=500, detail="Error de conexion")
+
+    cursor = conexion.cursor(dictionary=True)
+
+    try:
+        cursor.execute("DELETE FROM obra_subarea_tematica WHERE id_obra = %s", (id,))
+        conexion.commit()
+        
+        cursor.execute("DELETE FROM obras WHERE id = %s", (id,))
+        conexion.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Obra no encontrada")
+
+        cursor.close()
+        conexion.close()
+
+        return None
+
+    except IntegrityError as e:
+        conexion.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error de integridad en la base de datos."
+        )
 
 @router.get(
     "", 
@@ -375,13 +376,14 @@ def get_obras_estado(
 
 @router.get(
     "/tipo/{id_tipo}",
-    response_model=List[Obras],
+    status_code=status.HTTP_200_OK,
+    response_model=List[ObraDetallada],
     summary="Obtener obras por tipo",
     description="Obtener todas las obras de un tipo la base de datos, con limite y numero de pagina. Accesible para todos los usuarios.",
     tags=[router.tags[0]]
 )
 def get_obras_tipo(
-    tipo: int,
+    id_tipo: int,
     page: int = 1,
     limit: int = 10,
     user = Depends(allow_everyone)
@@ -390,7 +392,7 @@ def get_obras_tipo(
         where_clauses=[
             "o.id_tipo_material = %s"
         ],
-        params=[tipo],
+        params=[id_tipo],
         page=page,
         limit=limit
     )

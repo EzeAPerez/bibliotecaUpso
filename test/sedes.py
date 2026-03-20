@@ -203,7 +203,7 @@ def test_eliminar_sede_con_obras_asociados(auth_headers):
         headers=auth_headers  
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == "No se puede eliminar la sede porque tiene libros asociados"
+    assert response.json()["detail"] == "No se puede eliminar la sede porque tiene obras asociadas"
 
     response = client.delete(
         f"/obras/{obra_id}",

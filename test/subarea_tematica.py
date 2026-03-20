@@ -121,7 +121,7 @@ def test_modificar_subarea_tematica(auth_headers):
 
     response = client.patch(
         f"/subarea_tematica/{id_subarea}",
-        json={"nombre": "Subarea Tematica Modificada", "id_area_tematica": id_area},
+        json={"nombre": "Subarea Tematica Modificada"},
         headers=auth_headers 
     )
     assert response.status_code == 200
@@ -282,7 +282,7 @@ def test_eliminar_subarea_tematica_asociada(auth_headers):
         headers=auth_headers  
     )
     assert response.status_code == 400
-    assert response.json()['detail'] == "Error de integridad en la base de datos."
+    assert response.json()['detail'] == "No se puede eliminar la subárea porque tiene relaciones asociadas"
 
     response = client.delete(
         f"/obras/{obra_id}",

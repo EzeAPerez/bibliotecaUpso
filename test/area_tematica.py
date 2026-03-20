@@ -189,7 +189,7 @@ def test_eliminar_area_tematica_asociada(auth_headers):
         headers=auth_headers  
     )
     assert response.status_code == 400
-    assert response.json()['detail'] == "Error de integridad en la base de datos."
+    assert response.json()['detail'] == "No se puede eliminar el área temática porque tiene relaciones asociadas"
 
     response = client.delete(
         f"/subarea_tematica/{id_subarea}",
