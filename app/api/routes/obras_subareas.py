@@ -163,8 +163,8 @@ def eliminar_subarea_obra(
 @router.get(
     "",
     response_model=List[ObrasySubareasDetallado],
-    summary="Obtener subáreas temáticas de obra",
-    description="Obtener todas las subáreas temáticas asignadas a una obra específica por su ID. Accesible para todos los administradores.",
+    summary="Obtener las relaciones entre las obras y las subáreas temáticas",
+    description="Obtener todas las relaciones obras subáreas temáticas asignadas. Accesible para todos los administradores.",
     tags=[router.tags[0]]
 )
 def get_subareas_obra(
