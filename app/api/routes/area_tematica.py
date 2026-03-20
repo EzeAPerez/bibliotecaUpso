@@ -167,10 +167,10 @@ def eliminar_area_tematica(
             )
 
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=500,
             detail="Error de integridad en la base de datos."
         )
-
+    
     finally:
         cursor.close()
         conexion.close()

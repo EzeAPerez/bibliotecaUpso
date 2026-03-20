@@ -13,7 +13,7 @@ from core.security import (
 
 router = APIRouter(
     prefix="/subarea_tematica",
-    tags=["sub_area_tematicas"]
+    tags=["subarea_tematicas"]
 )
 
 @router.post(
@@ -183,7 +183,7 @@ def eliminar_subarea_tematica(
             )
 
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=500,
             detail="Error de integridad en la base de datos."
         )
 
