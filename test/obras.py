@@ -67,7 +67,7 @@ def test_crear_obra_repetida(auth_headers):
         headers=auth_headers
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "Ya existe un libro con el codigo: obra_nueva"
+    assert response.json()["detail"] == "Ya existe un libro con código: obra_nueva"
     
     client.delete(
         f"/obras/{id_obra}",
@@ -204,7 +204,7 @@ def test_eliminar_obras(auth_headers):
 
 def test_eliminar_obras_no_existente(auth_headers):
     response = client.delete(
-        f"/obras/9999999",
+        f"/obras/9999",
         headers=auth_headers    
     )
 

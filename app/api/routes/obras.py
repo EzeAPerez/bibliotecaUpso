@@ -5,117 +5,13 @@ from models.obras import ObraCreate, ObraUpdate, Obras, ObraDetallada
 from db.database import get_connection 
 from typing import List
 from mysql.connector import IntegrityError, errorcode
+from repositories.obras_repo import ObraRepository
+from services.obras_services import ObraService
 
 from core.security import (
     allow_everyone,
     allow_super_admin
 )
-
-def obtener_obras_base(where_clauses=[], params=[], page=1, limit=10):
-
-    conexion = get_connection()
-    cursor = conexion.cursor(dictionary=True)
-
-    offset = (page - 1) * limit
-
-    where_sql = ""
-    if where_clauses:
-        where_sql = "WHERE " + " AND ".join(where_clauses)
-
-    query = f"""
-    SELECT 
-        o.id,
-        o.codigo_fisico,
-        o.id_tipo_material,
-        tm.tipo AS tipo_material,
-        o.titulo,
-        o.subtitulo,
-        o.formato,
-        o.anio,
-        o.autor,
-        o.ubicacion_fisica,
-        o.anio_ingreso,
-        o.tipo_de_ingreso,
-        o.id_sede,
-        s.nombre AS nombre_sede,
-        o.id_estado,
-
-        o.isbn,
-        o.edicion,
-        o.tomo,
-        o.editorial,
-
-        o.issn,
-        o.volumen,
-        o.numero,
-
-        o.institucion,
-        o.nivel_academico,
-
-        at.id AS area_id,
-        at.nombre AS area_nombre,
-        st.id AS subarea_id,
-        st.nombre AS subarea_nombre
-
-    FROM obras o
-    JOIN sedes s ON o.id_sede = s.id
-    JOIN tipo_material tm ON o.id_tipo_material = tm.id
-    LEFT JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
-    LEFT JOIN subarea_tematica st ON ost.id_subarea = st.id
-    LEFT JOIN area_tematica at ON st.id_area_tematica = at.id
-
-    {where_sql}
-
-    ORDER BY o.id DESC
-    LIMIT %s OFFSET %s
-    """
-
-    cursor.execute(query, (*params, limit, offset))
-    rows = cursor.fetchall()
-
-    cursor.close()
-    conexion.close()
-
-    return rows
-
-def procesar_obras(rows):
-
-    obras = {}
-
-    for r in rows:
-
-        obra_id = r["id"]
-
-        if obra_id not in obras:
-            obras[obra_id] = {**r, "areas": []}
-
-            obras[obra_id].pop("area_id")
-            obras[obra_id].pop("area_nombre")
-            obras[obra_id].pop("subarea_id")
-            obras[obra_id].pop("subarea_nombre")
-
-        if r["area_id"]:
-
-            area = next(
-                (a for a in obras[obra_id]["areas"] if a["id"] == r["area_id"]),
-                None
-            )
-
-            if not area:
-                area = {
-                    "id": r["area_id"],
-                    "nombre": r["area_nombre"],
-                    "subareas": []
-                }
-                obras[obra_id]["areas"].append(area)
-
-            if r["subarea_id"]:
-                area["subareas"].append({
-                    "id": r["subarea_id"],
-                    "nombre": r["subarea_nombre"]
-                })
-
-    return list(obras.values())
 
 router = APIRouter(
     prefix="/obras",
@@ -131,88 +27,16 @@ router = APIRouter(
     tags=[router.tags[0]]
 )
 def crear_obra(
-    obra: ObraCreate,
+    obra: ObraCreate, 
     user = Depends(allow_super_admin)
 ):
-
-    nueva_obra = Obras.model_validate(obra)
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    conexion.autocommit = False
-    cursor = conexion.cursor()
-
     try:
-        sql = """
-        INSERT INTO obras (
-            codigo_fisico, id_tipo_material, titulo, subtitulo,
-            formato, anio, autor, ubicacion_fisica,
-            anio_ingreso, tipo_de_ingreso,
-            id_sede, id_estado, isbn,
-            edicion, tomo, editorial,
-            issn, volumen, numero,
-            institucion, nivel_academico
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-
-        cursor.execute(sql, (
-            nueva_obra.codigo_fisico,
-            nueva_obra.id_tipo_material,
-            nueva_obra.titulo,
-            nueva_obra.subtitulo,
-            nueva_obra.formato,
-            nueva_obra.anio,
-            nueva_obra.autor,
-            nueva_obra.ubicacion_fisica,
-            nueva_obra.anio_ingreso,
-            nueva_obra.tipo_de_ingreso,
-            nueva_obra.id_sede,
-            nueva_obra.id_estado,
-            nueva_obra.isbn,
-            nueva_obra.edicion,
-            nueva_obra.tomo,
-            nueva_obra.editorial,
-            nueva_obra.issn,
-            nueva_obra.volumen,
-            nueva_obra.numero,
-            nueva_obra.institucion,
-            nueva_obra.nivel_academico
-        ))
-
-        id_obra = cursor.lastrowid
-
-        if obra.subareas:
-            for id_subarea in obra.subareas:
-                cursor.execute("""
-                    INSERT INTO obra_subarea_tematica (id_obra, id_subarea)
-                    VALUES (%s, %s)
-                """, (id_obra, id_subarea))
-
-        conexion.commit()
-
-        return id_obra
-
+        obra_nueva = Obras.model_validate(obra)
+        return ObraRepository.crear(obra_nueva, obra.subareas)
     except IntegrityError as e:
-        conexion.rollback()
-
         if e.errno == errorcode.ER_DUP_ENTRY:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe un libro con el codigo: {nueva_obra.codigo_fisico}"
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error de integridad: {e.msg}"
-        )
-
-    finally:
-        cursor.close()
-        conexion.close()
-
+            raise HTTPException(status_code=409, detail=f"Ya existe un libro con código: {obra.codigo_fisico}")
+        raise HTTPException(status_code=400, detail=f"Error de integridad: {e.msg}")
 
 @router.patch(
     "/{id}", 
@@ -227,72 +51,19 @@ def modificar_obras(
     obra_update: ObraUpdate,
     user = Depends(allow_super_admin)
 ):
-    conexion = get_connection()
-    
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    cursor.execute("SELECT * FROM obras WHERE id = %s", (id,))
-    obra = cursor.fetchone()
-
-    if not obra:
-        cursor.close()
-        conexion.close()
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-
     try:
-
-        campos = []
-        valores = []
-
         data = obra_update.model_dump(exclude_unset=True)
-
-        for campo, valor in data.items():
-            campos.append(f"{campo} = %s")
-            valores.append(valor)
-
-        if not campos:
-            raise HTTPException(
-                status_code=400,
-                detail="No se enviaron campos para actualizar"
-            )
-
-        sql = f"""
-            UPDATE obras
-            SET {', '.join(campos)}
-            WHERE id = %s
-        """
-
-        valores.append(id)
-
-        cursor.execute(sql, valores)
-        conexion.commit()
-
-        cursor.execute("SELECT * FROM obras WHERE id = %s", (id,))
-        obra_actualizada = cursor.fetchone()
-
-        return obra_actualizada
+        result = ObraRepository.actualizar(id, data)
+        
+        if not result:
+            raise HTTPException(404, "Obra no encontrada")
+        else:
+            return result
     
     except IntegrityError as e:
-
-        conexion.rollback()
-
         if e.errno == errorcode.ER_DUP_ENTRY:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe una obra con el codigo: {obra_update.codigo_fisico}"
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error de integridad: {e.msg}"
-        )
-
-    finally:
-        cursor.close()
-        conexion.close() 
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Ya existe una obra con el codigo: {obra_update.codigo_fisico}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error de integridad: {e.msg}")
 
 @router.delete(
     "/{id}",
@@ -305,29 +76,15 @@ def eliminar_obras(
     id: int,
     user = Depends(allow_super_admin)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
     try:
-        cursor.execute("DELETE FROM obra_subarea_tematica WHERE id_obra = %s", (id,))
-        conexion.commit()
+        eliminado = ObraRepository.eliminar(id)
         
-        cursor.execute("DELETE FROM obras WHERE id = %s", (id,))
-        conexion.commit()
-
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Obra no encontrada")
-
-        cursor.close()
-        conexion.close()
+        if not eliminado:
+            raise HTTPException(404, "Obra no encontrada")
 
         return None
-
+    
     except IntegrityError as e:
-        conexion.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
@@ -346,9 +103,9 @@ def get_obras(
     user = Depends(allow_everyone)
     ):
 
-    rows = obtener_obras_base(page=page, limit=limit)
+    rows = ObraRepository.obtener_base(page=page, limit=limit)
 
-    return procesar_obras(rows)
+    return ObraService.procesar_obras(rows)
 
 @router.get(
     "/estado/{id_estado}",
@@ -363,16 +120,8 @@ def get_obras_estado(
     limit: int = 10,
     user = Depends(allow_everyone)
     ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "o.id_estado = %s"
-        ],
-        params=[id_estado],
-        page=page,
-        limit=limit
-    )
 
-    return procesar_obras(rows)
+    return ObraService.obtener_por_estado(id_estado, page, limit)
 
 @router.get(
     "/tipo/{id_tipo}",
@@ -388,16 +137,7 @@ def get_obras_tipo(
     limit: int = 10,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "o.id_tipo_material = %s"
-        ],
-        params=[id_tipo],
-        page=page,
-        limit=limit
-    )
-
-    return procesar_obras(rows)
+    return ObraService.obtener_por_tipo(id_tipo, page, limit)
 
 @router.get(
     "/{id}",
@@ -410,14 +150,10 @@ def get_obras_id(
     id: int,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "o.id = %s"
-        ],
-        params=[id]
-    )
-    if rows:
-        return procesar_obras(rows)[0]
+    obra = ObraService.obtener_por_id(id)  
+
+    if obra:
+        return obra
     else:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
@@ -432,14 +168,9 @@ def get_obras_codigo(
     codigo: str,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "o.codigo_fisico = %s"
-        ],
-        params=[codigo]
-    )
-    if rows:
-        return procesar_obras(rows)[0]
+    obra = ObraService.obtener_por_codigo(codigo)
+    if obra:
+        return obra
     else:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
@@ -456,20 +187,7 @@ def get_obras_buscar(
     limit: int = 10,
     user = Depends(allow_everyone)
 ):
-    like = f"%{q}%"
-    rows = obtener_obras_base(
-        where_clauses=[
-            "(o.titulo LIKE %s OR o.subtitulo LIKE %s OR o.autor LIKE %s OR at.nombre LIKE %s OR st.nombre LIKE %s)",
-        ],
-        params=[like, like, like, like, like],
-        page=page,
-        limit=limit
-    )
-
-    return procesar_obras(
-        rows
-    )
-
+    return ObraService.obtener_por_busqueda(q, page, limit)
 
 @router.get(
     "/area_tematica/{id_area}",
@@ -484,19 +202,7 @@ def get_obras_area_tematica(
     limit: int = 10,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "at.id = %s"
-        ],
-        params=[id_area],
-        page=page,
-        limit=limit
-    )
-
-    return procesar_obras(
-        rows
-    )
-
+    return ObraService.obtener_por_area_tematica(id_area, page, limit)
 
 @router.get(
     "/subarea_tematica/{id_subarea}",
@@ -511,18 +217,7 @@ def get_obras_sub_area_tematica(
     limit: int = 10,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "st.id = %s"
-        ],
-        params=[id_subarea],
-        page=page,
-        limit=limit
-    )
-
-    return procesar_obras(
-        rows
-    )
+    return ObraService.obtener_por_area_tematica(id_subarea, page, limit)
 
 @router.get(
     "/sede/{id_sede}",
@@ -537,18 +232,7 @@ def get_obras_sede(
     limit: int =10,
     user = Depends(allow_everyone)
 ):
-    rows = obtener_obras_base(
-        where_clauses=[
-            "o.id_sede = %s"
-        ],
-        params=[id_sede],
-        page=page,
-        limit=limit
-    )
-
-    return procesar_obras(
-        rows
-    )
+    return ObraService.obtener_por_sede(id_sede, page, limit)
 
 @router.get(
     "/cantidad/",
@@ -560,20 +244,7 @@ def get_obras_sede(
 def get_cant_obras(
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    cursor.execute("SELECT COUNT(*) FROM obras")
-    
-    count = cursor.fetchone()
-    
-    cursor.close()
-    conexion.close()
-
-    return count['COUNT(*)']
+    return ObraService.contar_obras()
 
 @router.get(
     "/buscar/cantidad",
@@ -586,38 +257,9 @@ def get_cantidad_obras_buscar(
     q: str,
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
+    return ObraService.contar_por_busqueda(q)
 
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
 
-    cursor = conexion.cursor()
-
-    query = """
-        SELECT COUNT(DISTINCT o.id)
-        FROM obras o
-        JOIN sedes s ON o.id_sede = s.id
-        LEFT JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
-        LEFT JOIN subarea_tematica st ON ost.id_subarea = st.id
-        LEFT JOIN area_tematica at ON st.id_area_tematica = at.id
-        WHERE 
-            o.titulo LIKE %s 
-            OR o.autor LIKE %s 
-            OR o.codigo_fisico LIKE %s 
-            OR o.subtitulo LIKE %s 
-            OR at.nombre LIKE %s 
-            OR st.nombre LIKE %s
-    """
-
-    params = (f"%{q}%",) * 6
-    cursor.execute(query, params)
-
-    total = cursor.fetchone()[0]
-
-    cursor.close()
-    conexion.close()
-
-    return total
 
 @router.get(
     "/tipo/{id_tipo}/cantidad",
@@ -630,20 +272,7 @@ def get_cant_obras_tipo(
     id_tipo: int,
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexcion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    cursor.execute("SELECT COUNT(*) FROM obras WHERE id_tipo_material=%s", (id_tipo,))
-
-    count = cursor.fetchone()
-
-    cursor.close()
-    conexion.close()
-
-    return count['COUNT(*)']
+    return ObraService.contar_por_tipo(id_tipo)
 
 
 @router.get(
@@ -653,24 +282,11 @@ def get_cant_obras_tipo(
     description="Obtener la cantidad de obras almacenadas en la base de datos de un estado expecifico. Accesible para todos los usuarios.",
     tags=[router.tags[0]]
 )
-def get_cant_obras_tipo(
+def get_cant_obras_estado(
     id_estado: int,
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexcion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    cursor.execute("SELECT COUNT(*) FROM obras WHERE id_estado=%s", (id_estado,))
-
-    count = cursor.fetchone()
-
-    cursor.close()
-    conexion.close()
-
-    return count['COUNT(*)']
+    return ObraService.contar_por_estado(id_estado)
 
 
 @router.get(
@@ -684,26 +300,7 @@ def get_cantidad_obras_area_tematica(
     id_area: int,
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor()
-
-    query = """
-         SELECT COUNT(DISTINCT o.id)
-        FROM obras o
-        JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
-        WHERE ost.id_subarea = %s
-    """
-
-    cursor.execute(query, (id_area,))
-    total = cursor.fetchone()[0]
-
-    cursor.close()
-    conexion.close()
-
-    return total
+    return ObraService.contar_por_area(id_area)
 
 @router.get(
     "/subarea_tematica/{id_subarea}/cantidad",
@@ -716,24 +313,4 @@ def get_cantidad_obras_sub_area_tematica(
     id_subarea: int,
     user = Depends(allow_everyone)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor()
-
-    query = """
-        SELECT COUNT(DISTINCT o.id)
-        FROM obras o
-        JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
-        JOIN subarea_tematica st ON ost.id_subarea = st.id
-        WHERE st.id_area_tematica = %s
-    """
-
-    cursor.execute(query, (id_subarea,))
-    total = cursor.fetchone()[0]
-
-    cursor.close()
-    conexion.close()
-
-    return total
+    return ObraService.contar_por_subarea(id_subarea)
