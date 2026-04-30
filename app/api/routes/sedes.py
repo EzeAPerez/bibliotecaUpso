@@ -5,6 +5,8 @@ from models.sedes import Sede, SedeCreate, SedeUpdate
 from db.database import get_connection 
 from typing import List
 from mysql.connector import IntegrityError, errorcode
+from repositories.sedes_repo import SedesRepository
+from services.sedes_service import SedesService
 
 from core.security import (
     allow_any_admin,
@@ -28,35 +30,10 @@ async def crear_sede(
     sede: SedeCreate, 
     user = Depends(allow_super_admin)
 ):
-    nueva_sede = Sede.model_validate(sede)
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-    
-    conexion.autocommit = False
-    cursor = conexion.cursor()
-
     try:
-        query = """
-            INSERT INTO sedes (
-                nombre
-            )
-            VALUES (%s)
-            """
-        
-        cursor.execute(query, (nueva_sede.nombre,))
-
-        id = cursor.lastrowid
-        conexion.commit()
-
-        cursor.close()
-        conexion.close()
-
-        return id
-
+        return SedesRepository.crear(sede)
+    
     except IntegrityError as e:
-        conexion.rollback()
 
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
@@ -67,10 +44,6 @@ async def crear_sede(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
-
-    finally:
-        cursor.close()
-        conexion.close() 
    
 @router.patch(
     "/{id}", 
@@ -84,39 +57,16 @@ def modificar_sede(
     id: int,
     sede_update: SedeUpdate,
     user = Depends(allow_super_admin)
-):
-    conexion = get_connection()
-    
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-    cursor.execute("SELECT id FROM sedes WHERE id = %s", (id,))
-    sede = cursor.fetchone()
-
-    if not sede:
-        raise HTTPException(
-            status_code=404,
-            detail="Sede no encontrada."
-        )
-    
+):    
     try:
-        query = """
-            UPDATE sedes
-            SET nombre = %s
-            WHERE id = %s
-        """
+        result = SedesRepository.modificar(id, sede_update)
 
-        cursor.execute(query, (sede_update.nombre, id))
-        conexion.commit()
+        if not result:
+            raise HTTPException(404, "Sede no encontrada")
+        else:
+            return result
         
-        return {
-            "id": id,
-            "nombre": sede_update.nombre
-            }
     except IntegrityError as e:
-        conexion.rollback()
-
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -126,10 +76,6 @@ def modificar_sede(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
-    
-    finally:
-        cursor.close()
-        conexion.close()
 
     
 @router.delete(
@@ -143,25 +89,17 @@ def eliminar_sede(
     id: int,
     user = Depends(allow_super_admin)
 ):
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-    
-    conexion.autocommit = False
-    cursor = conexion.cursor()
-
+   
     try:
-        cursor.execute("DELETE FROM sedes WHERE id = %s", (id,))
-        conexion.commit()
+        eliminado = SedesRepository.eliminar(id)
 
-        if cursor.rowcount == 0:
+        if eliminado:
+            return None
+        else:
             raise HTTPException(status_code=404, detail="Sede no encontrada")
 
-        return None
 
     except IntegrityError as e:
-        conexion.rollback()
         if "foreign key constraint" in str(e).lower():
             raise HTTPException(
                 status_code=400,
@@ -172,10 +110,6 @@ def eliminar_sede(
             status_code=500,
             detail="Error de integridad en la base de datos"
         )
-    
-    finally:
-        cursor.close()
-        conexion.close()
 
 @router.get(
     "",      
@@ -187,18 +121,8 @@ def eliminar_sede(
 def get_sedes(
     user = Depends(allow_any_admin)
 ):
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
     try:
-        cursor.execute("SELECT * FROM sedes")
-        resultados = cursor.fetchall()
-
-        return resultados
+        return SedesRepository.obtener()
 
     except Exception as e:
         raise HTTPException(
@@ -206,9 +130,6 @@ def get_sedes(
             detail=str(e)
         )
 
-    finally:
-        cursor.close()
-        conexion.close()
 
 @router.get(
     "/{id}",
@@ -221,21 +142,10 @@ def sede_por_id(
     id: int,
     user = Depends(allow_any_admin)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-    
-    cursor = conexion.cursor(dictionary=True)
-
-    cursor.execute("SELECT * FROM sedes WHERE id = %s", (id,))
-
-    sedes = cursor.fetchone()
+    sedes = SedesService.obtener_por_id(id)
 
     if not sedes:
         raise HTTPException(status_code=404, detail="Sede no encontrada")
-
-    cursor.close()
-    conexion.close()
 
     return sedes
 
@@ -251,28 +161,10 @@ def buscar_sedes(
     q: str,
     user = Depends(allow_any_admin)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-    
-    cursor = conexion.cursor(dictionary=True)
-
-    like = f"%{q}%"
-
-    query = """
-        SELECT * FROM sedes
-        WHERE nombre LIKE %s
-        """
-
-    cursor.execute(query, (like,))
-
-    sedes = cursor.fetchall()
+    sedes = SedesService.obtener_por_buscar(q)
 
     if not sedes:
         raise HTTPException(status_code=404, detail="Sede no encontrada")
-
-    cursor.close()
-    conexion.close()
 
     return sedes
 

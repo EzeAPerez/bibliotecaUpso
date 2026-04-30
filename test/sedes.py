@@ -99,7 +99,7 @@ def test_modificar_sede_no_existente(auth_headers):
     )
 
     assert response.status_code == 404
-    assert response.json()['detail'] == "Sede no encontrada."
+    assert response.json()['detail'] == "Sede no encontrada"
 
 def test_modificar_sede_repetida(auth_headers):
     response = client.post(
