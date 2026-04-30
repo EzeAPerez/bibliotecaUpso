@@ -53,8 +53,7 @@ def modificar_area_tematica(
     user = Depends(allow_super_admin)
 ):
     try:
-        data = area_update.model_dump(exclude_unset=True)
-        result = AreaTematicaRepository.modificar(id, data)
+        result = AreaTematicaRepository.modificar(id, area_update)
 
         if not result:
             raise HTTPException(404, "Área temática no encontrada.")
@@ -126,8 +125,11 @@ def get_area_tematica_id(
         else:  
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Area temática no encontrada.")    
 
+    except HTTPException:
+        raise 
+
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=500,
             detail=str(e)
         )

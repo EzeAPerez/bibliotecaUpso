@@ -90,12 +90,12 @@ def test_modificar_area_tematica(auth_headers):
 
 def test_modificar_area_tematica_no_existente(auth_headers):
     response = client.patch(
-        f"/area_tematica/{999999}",
+        f"/area_tematica/{9999}",
         json={"nombre": "Area Tematica Modificada"},
         headers=auth_headers
     )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Area tematica no encontrada."
+    assert response.json()["detail"] == "Área temática no encontrada."
 
 def test_modificar_area_tematica_repetida(auth_headers):
     response = client.post(
@@ -161,7 +161,7 @@ def test_eliminar_area_tematica(auth_headers):
 
 def test_eliminar_area_tematica_no_existente(auth_headers):
     response = client.delete(
-        f"/area_tematica/{999999}",
+        f"/area_tematica/{9999}",
         headers=auth_headers  
     )
     assert response.status_code == 404
@@ -251,7 +251,7 @@ def test_obtener_area_tematica_id(auth_headers):
 
 def test_obtener_area_tematica_id_no_existente(auth_headers):
     response = client.get(
-        f"/area_tematica/{99999999}",
+        f"/area_tematica/{9999}",
         headers=auth_headers  
     )
 

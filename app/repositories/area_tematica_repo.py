@@ -4,21 +4,21 @@ from mysql.connector import IntegrityError
 class AreaTematicaRepository:
 
     @staticmethod
-    def obtener(where_clauses=[]):
+    def obtener(where_clauses=[], params=[]):
         conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
         
         where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
         try:
-            cursor.execute(f"SELECT * FROM area_tematica {where_sql}")
-            resultados = cursor.fetchall()
+            query = f"""
+                SELECT * 
+                FROM area_tematica 
+                {where_sql}
+                """
+            cursor.execute(query, (*params,))
+            return cursor.fetchall()
 
-            return resultados
-        
-        except IntegrityError as e:
-            conexion.rollback()
-            raise e
         finally:
             cursor.close()
             conexion.close()
@@ -91,7 +91,6 @@ class AreaTematicaRepository:
             cursor.execute("DELETE FROM area_tematica WHERE id = %s", (id,))
             eliminado = cursor.rowcount > 0
             conexion.commit()
-
             return eliminado
 
         except IntegrityError as e:
