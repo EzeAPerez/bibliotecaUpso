@@ -2,7 +2,6 @@ from errno import errorcode
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from models.obras import ObraCreate, ObraUpdate, Obras, ObraDetallada
-from db.database import get_connection 
 from typing import List
 from mysql.connector import IntegrityError, errorcode
 from repositories.obras_repo import ObraRepository

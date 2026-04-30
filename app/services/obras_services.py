@@ -1,5 +1,4 @@
 from repositories.obras_repo import ObraRepository
-from models.obras import ObraCreate, ObraUpdate, Obras, ObraDetallada
 
 class ObraService:
     
