@@ -1,10 +1,11 @@
 from errno import errorcode
 
 from fastapi import APIRouter, HTTPException, Depends, status
-from db.database import get_connection 
 from typing import List
 from mysql.connector import IntegrityError, errorcode
 from models.subarea_tematica import CreateSubAreaTematica, SubAreaTematica, UpdateSubAreaTematica
+from repositories.subarea_tematica import SubAreaRepository
+from services.subarea_tematica_service import SubAreaService
 
 from core.security import (
     allow_any_admin,
@@ -28,51 +29,21 @@ def crear_subarea_tematica(
     subarea_create: CreateSubAreaTematica,
     user = Depends(allow_super_admin)
 ):
-    nueva_subarea = SubAreaTematica.model_validate(subarea_create)
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-    
-    conexion.autocommit = False
-    cursor = conexion.cursor()
 
     try:
-        query = """
-            INSERT INTO subarea_tematica (
-                nombre,
-                id_area_tematica
-            )
-            VALUES (%s, %s)
-            """
-        
-        cursor.execute(query, (nueva_subarea.nombre, nueva_subarea.id_area_tematica))
-
-        id_subarea = cursor.lastrowid
-        conexion.commit()
-
-        cursor.close()
-        conexion.close()
-
-        return id_subarea
+        return SubAreaRepository.crear(subarea_create)
 
     except IntegrityError as e:
-        conexion.rollback()
-
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ya existe un subarea tematica con el nombre: {nueva_subarea.nombre} y {nueva_subarea.id_area_tematica}"
+                detail=f"Ya existe un subarea tematica con el nombre: {subarea_create.nombre} y {subarea_create.id_area_tematica}"
             )
         
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error de integridad: {e.msg}"
         )
-
-    finally:
-        cursor.close()
-        conexion.close()
 
 @router.patch(
     "/{id}",
@@ -85,55 +56,16 @@ def modificar_subarea_tematica(
     id: int,
     subarea_update: UpdateSubAreaTematica
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-    cursor.execute("SELECT id FROM subarea_tematica WHERE id = %s", (id,))
-    sede = cursor.fetchone()
-
-    if not sede:
-        raise HTTPException(
-            status_code=404,
-            detail="Subarea tematica no encontrada."
-        )
-
     try:
-        campos = []
-        valores = []
-
         data = subarea_update.model_dump(exclude_unset=True)
+        result = SubAreaRepository.modificar(id, data)
 
-        for campo, valor in data.items():
-            campos.append(f"{campo} = %s")
-            valores.append(valor)
-
-        if not campos:
-            raise HTTPException(
-                status_code=400,
-                detail="No se enviaron campos para actualizar"
-            )
-
-        sql = f"""
-            UPDATE subarea_tematica
-            SET {', '.join(campos)}
-            WHERE id = %s
-        """
-
-        valores.append(id)
-
-        cursor.execute(sql, valores)
-        conexion.commit()
+        if not result:
+            raise HTTPException(404, "Subarea tematica no encontrada.")
+        else:
+            return result
         
-        cursor.execute("SELECT * FROM subarea_tematica WHERE id = %s", (id,))
-        subarea_actualizada = cursor.fetchone()
-
-        return subarea_actualizada
-
     except IntegrityError as e:
-        conexion.rollback()
-
         if e.errno == errorcode.ER_DUP_ENTRY:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -143,10 +75,6 @@ def modificar_subarea_tematica(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
-    
-    finally:
-        cursor.close()
-        conexion.close()
 
 @router.delete(
     "/{id}",
@@ -159,23 +87,15 @@ def eliminar_subarea_tematica(
     id: int,
     user = Depends(allow_super_admin)
 ):
-    conexion = get_connection()
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
     try:
-        cursor.execute("DELETE FROM subarea_tematica WHERE id = %s", (id,))
-        conexion.commit()
-
-        if cursor.rowcount == 0:
+        
+        elimando = SubAreaRepository.eliminar(id)
+        if not elimando:
             raise HTTPException(status_code=404, detail="Subárea temática no encontrada.")
         
         return None
 
     except IntegrityError as e:
-        conexion.rollback()
         if "foreign key constraint" in str(e).lower():
             raise HTTPException(
                 status_code=400,
@@ -187,10 +107,6 @@ def eliminar_subarea_tematica(
             detail="Error de integridad en la base de datos."
         )
 
-    finally:
-        cursor.close()
-        conexion.close()
-
 @router.get(
     "",
     response_model=List[SubAreaTematica],
@@ -199,30 +115,9 @@ def eliminar_subarea_tematica(
     tags=[router.tags[0]] 
 )
 def get_subarea_tematicas(user = Depends(allow_any_admin)):
-    conexion = get_connection()
+    return SubAreaRepository.obtener()
 
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    try:
-        cursor.execute("SELECT * FROM subarea_tematica")
-        resultados = cursor.fetchall()
-
-        return resultados
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-    finally:
-        cursor.close()
-        conexion.close()
-
-
+    
 @router.get(
     "/{id}",
     response_model=SubAreaTematica,
@@ -234,30 +129,8 @@ def get_subarea_tematica_id(
     id: int,
     user = Depends(allow_any_admin)
 ):
-    conexion = get_connection()
-
-    if not conexion:
-        raise HTTPException(status_code=500, detail="Error de conexion")
-
-    cursor = conexion.cursor(dictionary=True)
-
-    try:
-        cursor.execute("SELECT * FROM subarea_tematica WHERE id = %s", (id,))
-        resultados = cursor.fetchall()
-        
-        return resultados[0]
-
-    except Exception as e:
-        if resultados is None or len(resultados) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Subárea temática no encontrada."
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
-
-    finally:
-        cursor.close() 
+    subarea = SubAreaService.obtener_por_id(id)
+    if subarea:
+        return subarea
+    else:
+        raise HTTPException(status_code=404, detail="Subárea temática no encontrada.")
