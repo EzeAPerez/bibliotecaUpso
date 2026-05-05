@@ -1,16 +1,13 @@
 from repositories.area_tematica_repo import AreaTematicaRepository
 
 class AreaTematicaService:
-    
-    @staticmethod 
-    def obtener_por_id(id=int):
-        rows = AreaTematicaRepository.obtener(
-            where_clauses=[
-                "id = %s"
-            ],
+
+    def __init__(self, repository: AreaTematicaRepository):
+        self.repository = repository
+
+    def obtener_por_id(self, id: int):
+        rows = self.repository.obtener(
+            where_clauses=["id = %s"],
             params=[id]
         )
-        if rows:
-            return rows[0]
-        else: 
-            None
+        return rows[0] if rows else None
