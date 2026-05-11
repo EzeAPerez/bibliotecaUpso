@@ -64,20 +64,7 @@ class ObraService:
             return ObraService.procesar_obras(rows)[0]
         else: 
             None
-       
-    @staticmethod
-    def obtener_por_codigo(codigo : str):
-        rows = ObraRepository.obtener_base(
-            where_clauses=[
-                "o.codigo_fisico = %s"
-            ],
-            params=[codigo]
-        )
-        if rows:
-            return ObraService.procesar_obras(rows)[0]
-        else:
-            return None
-        
+
     @staticmethod
     def obtener_por_busqueda(q: str, page=1, limit=10):
         like = f"%{q}%"
@@ -118,18 +105,6 @@ class ObraService:
 
         return ObraService.procesar_obras(rows)
     
-    @staticmethod
-    def obtener_por_sede(id_sede:int, page:int, limit:int):
-        rows = ObraRepository.obtener_base(
-            where_clauses=[
-                "o.id_sede = %s"
-            ],
-            params=[id_sede],
-            page=page,
-            limit=limit
-        )
-
-        return ObraService.procesar_obras(rows)
 
     @staticmethod
     def contar_obras():
@@ -140,20 +115,6 @@ class ObraService:
         return ObraRepository.contar(
             ["o.id_tipo_material = %s"],
             [id_tipo]
-        )
-
-    @staticmethod
-    def contar_por_estado(id_estado):
-        return ObraRepository.contar(
-            ["o.id_estado = %s"],
-            [id_estado]
-        )
-
-    @staticmethod
-    def contar_por_sede(id_sede):
-        return ObraRepository.contar(
-            ["o.id_sede = %s"],
-            [id_sede]
         )
 
     @staticmethod
