@@ -1,155 +1,282 @@
-from errno import errorcode
-
-from fastapi import APIRouter, HTTPException, FastAPI, Depends, Request, status
-from sqlmodel import Enum
-from db.database import get_connection 
-from typing import Any, Dict, List
+from fastapi import APIRouter, HTTPException, Depends, Form, Request, status, Cookie, Response, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from mysql.connector import IntegrityError, errorcode
-from jose import jwt, JWTError
+from jose import JWTError, jwt
+from typing import Optional
+from services.auth_services import AuthService
+from repositories.auth_repo import AuthRepository
+from services.email_templates import *
+from models.auth import *
+from core.security import *
+from core.roles import *
+from core.crypto import *
+
+service = AuthService()
 
 router = APIRouter(
-    prefix="/login",
+    prefix="",
     tags=["auth"]
-) 
+)
 
-# autorizacion de usuarios
-JWT_SECRET_KEY = "TU_SECRET_KEY"
-JWT_ALGORITHM = "HS256"
-
+FRONTEND_BASE_URL = "https://dev/biblioteca"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-@router.post("")
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
-    if form_data.username != "admin" or form_data.password != "1234":
+@router.post("/login")
+async def login(
+    response: Response,
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    otp_code: Optional[str] = Form(None)
+):
+    return await service.login(
+        response,
+        request,
+        form.username,
+        form.password,
+        otp_code
+    )
+# --- ENDPOINTS AUXILIARES (Cambio Pass y Setup 2FA) ---
+
+@router.post("/complete-change-password", tags=["Autenticación"])
+async def complete_change_password(
+    username: str = Form(...),
+    old_password: str = Form(...),
+    new_password: str = Form(...)
+):
+    user = AuthRepository.get_user_by_username(username)
+    if not user or not pwd_context.verify(old_password, user['password']):
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    if user['must_change_password'] == 0:
+        return {"detail": "No necesitas cambiar la contraseña."}
+
+    # Hash y guardar
+    new_hash = pwd_context.hash(new_password)
+    AuthRepository.update_password_changed(user['id'], new_hash)
+    
+    return {"detail": "Contraseña actualizada. Por favor inicia sesión."}
+
+@router.post("/generate-2fa-qr", tags=["Autenticación"])
+async def generate_2fa(username: str = Form(...), password: str = Form(...)):
+
+    """Genera el secreto y la URL para el QR"""
+    user = AuthRepository.get_user_by_username(username)
+    # Validamos pass de nuevo por seguridad
+    if not user or not pwd_context.verify(password, user['password']):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    payload = {
-        "sub": form_data.username,
-        "jti": "123456"
-    }
+    # Generar secreto
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    
+    # 4. Generar la URI desde la instancia
+    uri = totp.provisioning_uri(name=user['correo'], issuer_name="MiBiblioteca")
+    
+    # Devolvemos el secreto y la URI (El frontend debe generar el QR con la URI)
+    return {"secret": secret, "otpauth_url": uri}
 
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+@router.post("/confirm-2fa-setup", tags=["Autenticación"])
+async def confirm_2fa(
+    username: str = Form(...),
+    secret: str = Form(...),
+    code: str = Form(...)
+):
+    """El usuario escanea el QR y manda un código para confirmar que funciona"""
+    user = AuthRepository.get_user_by_username(username)
+    if not user: raise HTTPException(status_code=404)
 
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    # Validar que el código coincida con el secreto que acabamos de generar
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code):
+         raise HTTPException(status_code=400, detail="Código incorrecto. Intenta de nuevo.")
 
-def get_session_data(jti: str):
+    # Si es correcto, guardamos el secreto en la BD y activamos el 2FA
+    AuthRepository.enable_2fa_for_user(user['id'], secret)
+    
+    return {"detail": "2FA activado correctamente. Por favor inicia sesión."}
+
+@router.post("/refresh", tags=["Autenticación"])
+async def refresh_access_token(user: Dict[str, Any] = Depends(get_current_user_from_refresh_token_cookie)):
+    return await AuthService.refresh(user)
+
+@router.post("/logout", tags=["Autenticación"])
+async def logout(response: Response, refresh_token: str = Cookie(None)):
+    return await AuthService.logout(response, refresh_token)
+
+@router.post("/forgot-password", tags=["Autenticación"])
+async def forgot_password(
+    background_tasks: BackgroundTasks,
+    username: str = Form(...) # Recibimos solo el usuario
+):
     """
-    Busca la sesión en la base de datos por JTI.
-    Debe devolver algo como:
-
-    {
-        "id_usuario": 1,
-        "nombre": "Ezequiel",
-        "id_rol": 1,
-        "ip_address": "127.0.0.1"
-    }
+    Inicia el flujo de recuperación. Envía un correo con link al usuario.
     """
+    # 1. Buscar usuario
+    user = AuthRepository.get_user_by_username(username)
+    
+    # 2. Validación de Seguridad (Silent fail)
+    if not user:
+        return {"detail": "Si el usuario existe, se ha enviado un correo de recuperación."}
 
-    # EJEMPLO SIMULADO
-    # En tu caso esto debería consultar la BD
-    fake_session = {
-        "id_usuario": 1,
-        "nombre": "Ezequiel",
-        "id_rol": 3,
-        "ip_address": "127.0.0.1"
+    # 3. Generar Token Seguro
+    token = AuthRepository.create_password_reset_token(user['nombre'])
+    
+    # 4. Construir el Link para el Frontend
+    reset_link = f"{FRONTEND_BASE_URL}/reset-password?token={token}"
+
+    # 5. Enviar Correo
+    email_context = {
+        "username": user['nombre'],
+        "reset_link": reset_link
     }
+    
+    background_tasks.add_task(
+        send_email_template, 
+        subject="Recuperar tu Contraseña", 
+        email_to=[user['correo']], 
+        template_name="password_recovery.html",
+        template_body=email_context
+    )
 
-    return fake_session
+    return {"detail": "Si el usuario existe, se ha enviado un correo de recuperación."}
 
-async def get_current_active_user(
-    request: Request, # Para leer la IP actual
-    token: str = Depends(oauth2_scheme) # Para leer el Bearer Token
-) -> Dict[str, Any]:
+@router.post("/reset-password-confirm", tags=["Autenticación"])
+async def reset_password_confirm(data: PasswordResetConfirm, background_tasks: BackgroundTasks):
     """
-    Esta función protege las rutas. Verifica:
-    1. Que el JWT sea válido.
-    2. Que la sesión exista en BD (Revocación instantánea).
-    3. Que la IP coincida (Anti-Robo de Token).
+    Recibe el token y la nueva contraseña.
+    Valida el token y actualiza la BD.
     """
     credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="No se pudo validar las credenciales o la sesión expiró.",
-        headers={"WWW-Authenticate": "Bearer"},
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="El enlace de recuperación es inválido o ha expirado.",
     )
 
     try:
-        # A. Decodificar JWT
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        # 1. Decodificar el Token
+        # Esto valida automáticamente la firma y la fecha de expiración (15 min)
+        payload = jwt.decode(data.token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        
         username: str = payload.get("sub")
-        jti: str = payload.get("jti") # Necesitamos el JTI del access token
+        token_type: str = payload.get("type")
 
-        if username is None or jti is None:
+        # 2. Validaciones Extra de Seguridad
+        if username is None:
             raise credentials_exception
             
-        # B. Consultar la BD (Aquí ocurre la desencriptación interna)
-        session_data = get_session_data(jti)
+        # IMPORTANTE: Verificar que sea un token de RESET y no uno de LOGIN robado
+        if token_type != "password_reset":
+            raise HTTPException(status_code=400, detail="Tipo de token inválido para esta operación.")
+
+        # 3. Hashear la nueva contraseña
+        new_hash = pwd_context.hash(data.new_password)
+
+        # 4. Guardar en Base de Datos
+        success = AuthRepository.update_password_by_username(username, new_hash)
         
-        if session_data is None:
-            # Si no hay datos, significa que la sesión fue borrada (Logout o Rotación)
-            # Aunque el JWT siga "vivo" por fecha, lo rechazamos. ¡Seguridad total!
-            raise HTTPException(status_code=401, detail="Sesión revocada o expirada.")
+        if not success:
+            raise HTTPException(status_code=500, detail="Error al actualizar la contraseña.")
+        
+        user_data = AuthRepository.get_user_by_username(username)
+    
+        background_tasks.add_task(
+            send_email_template,
+            subject="Aviso de Seguridad: Contraseña modificada",
+            email_to=[user_data['correo']],
+            template_name="password_changed.html",
+            template_body={"username": username}
+        )
 
-        # C. VALIDACIÓN DE IP (El Check Final)
-        current_ip = request.client.host
-        stored_ip = session_data['ip_address'] # Ya viene desencriptada por la función
-
-        if current_ip != stored_ip:
-            print(f"ALERTA: Token usado desde IP distinta. Original: {stored_ip}, Actual: {current_ip}")
-            # Opcional: Podrías borrar la sesión aquí si eres muy estricto
-            raise HTTPException(status_code=401, detail="IP no reconocida. Inicia sesión nuevamente.")
-
-        return session_data
+        return {"detail": "Contraseña actualizada correctamente. Por favor inicia sesión."}
 
     except JWTError:
+        # Si el token expiró o fue manipulado, cae aquí
         raise credentials_exception
 
+@router.post("/register/student", tags=["Gestión Usuarios"])
+async def register_student(student: StudentRegister, background_tasks: BackgroundTasks):
+    """
+    Registra un nuevo alumno validando sus datos contra Moodle.
+    """
+    print(f"DEBUG: Intento de registro: {student.username}")
 
-class RoleChecker:
-    def __init__(self, allowed_roles: List[int]):
-        """
-        Recibe la lista de IDs de roles permitidos.
-        Ej: [1] para solo SuperAdmin, [1, 2] para Admins.
-        """
-        self.allowed_roles = allowed_roles
+    # PASO 1: Verificar si ya existe localmente en biblioteca_db
+    local_user = AuthRepository.get_user_by_username(student.username)
+    if local_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Este usuario ya está registrado en la biblioteca."
+        )
 
-    def __call__(self, user: Dict[str, Any] = Depends(get_current_active_user)):
-        """
-        Esta función se ejecuta cuando llamas a la ruta.
-        1. FastAPI ejecuta 'get_current_active_user' (Valida Token, IP, Sesión).
-        2. Recibe el usuario validado.
-        3. Verifica si el 'id_rol' está en la lista permitida.
-        """
-        if user["id_rol"] not in self.allowed_roles:
-            print(f"ALERTA: Usuario {user['nombre']} (Rol {user['id_rol']}) intentó acceder a ruta protegida.")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail="No tienes permisos suficientes para realizar esta acción."
-            )
-        return user
+    # PASO 2: Validar contra la base de datos de Moodle
+    # (Se conecta a 172.30.8.113 y consulta mdl_user)
+    is_valid_moodle = AuthRepository.validate_moodle_student(student.username, student.email)
+    
+    if not is_valid_moodle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Datos no válidos. No encontramos un estudiante activo en el Campus (Moodle) con ese Usuario y Correo."
+        )
 
-# --- DEFINICIÓN DE PERMISOS REUTILIZABLES ---
-# Definimos las "reglas" una sola vez para usarlas en las rutas
-allow_super_admin = RoleChecker([1])          # Solo ID 1
-allow_any_admin   = RoleChecker([1, 2])       # ID 1 y 2
-allow_students    = RoleChecker([3])          # Solo Alumnos
-allow_everyone    = RoleChecker([1, 2, 3])    # Todos los roles (1, 2 y 3)
+    # PASO 3: Hashear contraseña y Crear usuario local
+    hashed_password = pwd_context.hash(student.password)
+    
+    success = AuthRepository.create_local_student(
+        username=student.username, 
+        password_hash=hashed_password, 
+        email=student.email, 
+        id_sede=student.id_sede
+    )
 
-
-@router.get("/test-auth")
-def test(user = Depends(allow_everyone)):
-    return {
-        "mensaje": "usuario autenticado",
-        "user": user
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Error interno al crear el usuario."
+        )
+    
+    email_context = {
+        "username": student.username,
+        "login_url": "https://biblioteca.upso.edu.ar/login" # La URL de tu Frontend (React/Vue)
     }
+    
+    # Agregamos la tarea en segundo plano
+    background_tasks.add_task(
+        send_email_template, 
+        subject="¡Bienvenido a la Biblioteca UPSO!", 
+        email_to=[student.email], 
+        template_name="registration_success.html", # Nombre del archivo
+        template_body=email_context
+    )
 
-@router.get("/ruta-admin")
-def test(user = Depends(allow_any_admin)):
+    return {"detail": "Registro exitoso. Ya puedes iniciar sesión en la biblioteca."}
+
+@router.get("/users/me", tags=["Usuarios"])
+async def read_users_me(current_user: Dict[str, Any] = Depends(allow_everyone)):
+    """
+    Devuelve la información del usuario actual y su sesión.
+    
+    Seguridad aplicada:
+    1. Token JWT válido.
+    2. Sesión activa en BD (si haces logout, esto falla).
+    3. IP Validada (si la cookie fue robada y usada en otra IP, esto falla).
+    4. IP Desencriptada (Fernet la desencriptó antes de llegar aquí).
+    """
+    
+    # Mapeo simple de roles para que el front muestre el nombre y no el número
+    role_names = {1: "SuperAdmin", 2: "Admin Sede", 3: "Alumno"}
+    role_name = role_names.get(current_user["id_rol"], "Desconocido")
+
     return {
-        "mensaje": "usuario autenticado",
-        "user": user
+        "profile": {
+            "id": current_user["id"],
+            "username": current_user["nombre"],
+            "email": current_user["correo"],
+            "role_id": current_user["id_rol"],
+            "role_name": role_name,
+            "2fa_active": bool(current_user["is_2fa_enabled"]) # True/False
+        },
+        "session": {
+            "current_ip": current_user["ip_address"], # <--- Aquí ya la ves desencriptada (Ej: 192.168.1.50)
+            "user_agent": current_user["user_agent"], # Ej: Mozilla/5.0...
+            "session_id": current_user["session_token"]
+        }
     }

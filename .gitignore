@@ -4,3 +4,4 @@ __pycache__/
 *$py.class
 datos.py
 .pytest_cache/
+auth_prueba.py
