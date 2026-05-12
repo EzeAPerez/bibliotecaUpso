@@ -1,11 +1,5 @@
 from db.database import *
-from passlib.context import CryptContext
-import os
 import datetime
-import pyotp
-from typing import Dict, Any, Optional
-from jose import JWTError, jwt
-from cryptography.fernet import Fernet
 from core.config import JWT_REFRESH_TOKEN_EXPIRES
 from core.crypto import *
 
