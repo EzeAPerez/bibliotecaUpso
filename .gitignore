@@ -5,3 +5,7 @@ __pycache__/
 datos.py
 .pytest_cache/
 auth_prueba.py
+biblioteca_original.sql
+obras_original.py
+obras_repo_original.py
+obras_services_original.py
