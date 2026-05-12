@@ -107,22 +107,6 @@ def get_obras(
     return ObraService.procesar_obras(rows)
 
 @router.get(
-    "/estado/{id_estado}",
-    response_model=List[ObraDetallada],
-    summary="Obtener obras por estado",
-    description="Obtener todas las obras de un estado de la base de datos, con limite y numero de pagina. Accesible para todos los usuarios.",
-    tags=[router.tags[0]]
-)
-def get_obras_estado(
-    id_estado: int,
-    page: int = 1,
-    limit: int = 10,
-    user = Depends(allow_everyone)
-    ):
-
-    return ObraService.obtener_por_estado(id_estado, page, limit)
-
-@router.get(
     "/tipo/{id_tipo}",
     status_code=status.HTTP_200_OK,
     response_model=List[ObraDetallada],
@@ -151,23 +135,6 @@ def get_obras_id(
 ):
     obra = ObraService.obtener_por_id(id)  
 
-    if obra:
-        return obra
-    else:
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-
-@router.get(
-    "/codigo/{codigo:path}",
-    response_model=ObraDetallada,
-    summary="Obtener una obra por código",
-    description="Obtener una obra específica de la base de datos por su código. Accesible para todos los usuarios.",
-    tags=[router.tags[0]]
-)
-def get_obras_codigo(
-    codigo: str,
-    user = Depends(allow_everyone)
-):
-    obra = ObraService.obtener_por_codigo(codigo)
     if obra:
         return obra
     else:
@@ -219,21 +186,6 @@ def get_obras_sub_area_tematica(
     return ObraService.obtener_por_area_tematica(id_subarea, page, limit)
 
 @router.get(
-    "/sede/{id_sede}",
-    response_model=List[ObraDetallada],
-    summary="Obtener obras por sede",
-    description="Obtener todas las obras almacenadas en la base de datos de una sede expecifico. Accesible para todos los usuarios.",
-    tags=[router.tags[0]]
-)
-def get_obras_sede(
-    id_sede: int,
-    page: int = 1,
-    limit: int =10,
-    user = Depends(allow_everyone)
-):
-    return ObraService.obtener_por_sede(id_sede, page, limit)
-
-@router.get(
     "/cantidad/",
     response_model=int,
     summary="Obtener la cantidad de obras",
@@ -272,21 +224,6 @@ def get_cant_obras_tipo(
     user = Depends(allow_everyone)
 ):
     return ObraService.contar_por_tipo(id_tipo)
-
-
-@router.get(
-    "/estado/{id_estado}/cantidad",
-    response_model=int,
-    summary="Obtener la cantidad de obras de un estado",
-    description="Obtener la cantidad de obras almacenadas en la base de datos de un estado expecifico. Accesible para todos los usuarios.",
-    tags=[router.tags[0]]
-)
-def get_cant_obras_estado(
-    id_estado: int,
-    user = Depends(allow_everyone)
-):
-    return ObraService.contar_por_estado(id_estado)
-
 
 @router.get(
     "/area_tematica/{id_area}/cantidad",

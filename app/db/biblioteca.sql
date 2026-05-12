@@ -1,21 +1,10 @@
 CREATE DATABASE bibliotecaUpso CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
------------- sedes -------------
-/*
-    Tabla con los datos de las distintas sedes. 
-    id --> SMALLINT UNSIGNED AUTO_INCREMENT / identificador unico de la sede.
-    nombre --> VARCHAR(50) / nombre de la ciudad donde se encuentra la sede. 
-
-    A la hora de incorporar nuevas sedes, no puede existir una sede con mismo nombres. 
-*/
-
 CREATE TABLE sedes (
     id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL,
     CONSTRAINT uq_sedes_nombre UNIQUE (nombre)
 );
-
-
 
 INSERT INTO sedes (nombre) VALUES ('Bahia Blanca') ;
 INSERT INTO sedes (nombre) VALUES ('Carhué') ;
@@ -43,14 +32,6 @@ INSERT INTO sedes (nombre) VALUES ('Tres Arroyos') ;
 INSERT INTO sedes (nombre) VALUES ('Tres Lomas') ;
 INSERT INTO sedes (nombre) VALUES ('Villalonga') ;
 
------------- tipo_material ------------
-/*
-    Tabla con los tipos de obras. 
-    id --> SMALLINT UNSIGNED AUTO_INCREMENT / identificador unico de la sede.
-    tipo --> VARCHAR(50) / nombre del tipo de obra.
-
-    A la hora de incorporar nuevos tipos de obras, no puede existir un tipo con mismo nombre. 
-*/
 CREATE TABLE tipo_material (
     id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tipo VARCHAR(50) NOT NULL,
@@ -62,23 +43,13 @@ INSERT INTO tipo_material (tipo) VALUES ('Revista');
 INSERT INTO tipo_material (tipo) VALUES ('Tesis');
 INSERT INTO tipo_material (tipo) VALUES ('Otros');
 
------------- estado_obra -------------
-/*
-    Tabla con los estados de un obra. 
-    En el se almacena los distintos estados que puede pasar una obra.
-    DISPONIBLE: determina que obra esta disponible en su ubicacion y listo para ser reservado.
-    RESERVADO: determina que obra fue reservado por un usario y esta esperando por ser retidado o en viaje.
-    PRESTADO: el usuario que reservo la obra, retiro y esta en su posecion.
-    VENCIDO: la obra no fue devuelta en el plazo acordado y no se encuentra disponible.
-    DE_BAJA: por cuestiones de administracion la obra fue dada de baja de forma manual. 
-*/
-CREATE TABLE estado_obra (
+CREATE TABLE estado_ejemplar (
     id SMALLINT UNSIGNED PRIMARY KEY,
     estado VARCHAR(50) NOT NULL,
-    CONSTRAINT uq_estado_obra_estado UNIQUE (estado)
+    CONSTRAINT uq_estado_ejemplar_estado UNIQUE (estado)
 );
 
-INSERT INTO estado_obra (id, estado) VALUES 
+INSERT INTO estado_ejemplar (id, estado) VALUES 
 (1, 'DISPONIBLE'), 
 (2, 'RESERVADO'), 
 (3, 'PRESTADO'), 
@@ -127,29 +98,13 @@ CREATE TABLE subarea_tematica(
 );
 INSERT INTO subarea_tematica (nombre, id_area_tematica) values ('Sociologia', 1);
 
-CREATE TABLE obra_subarea_tematica (
-    id_obra MEDIUMINT UNSIGNED NOT NULL,
-    id_subarea SMALLINT UNSIGNED NOT NULL,
-    PRIMARY KEY (id_obra, id_subarea),
-    FOREIGN KEY (id_obra) REFERENCES obras(id),
-    FOREIGN KEY (id_subarea) REFERENCES subarea_tematica(id)
-);
-
------------- Materiales / Obras -------------
 CREATE TABLE obras(
     id MEDIUMINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, 
     id_tipo_material SMALLINT UNSIGNED NOT NULL,
-    codigo_fisico VARCHAR(25) NOT NULL, 
     titulo VARCHAR(255) NOT NULL,
     subtitulo VARCHAR(255),
-    formato VARCHAR(50),
     anio SMALLINT UNSIGNED,
     autor VARCHAR(255),
-    ubicacion_fisica VARCHAR(255),
-    anio_ingreso SMALLINT UNSIGNED,
-    tipo_de_ingreso VARCHAR(100),
-    id_sede SMALLINT UNSIGNED NOT NULL,
-    id_estado SMALLINT UNSIGNED NOT NULL DEFAULT 1,
 
     isbn VARCHAR(20),
     edicion VARCHAR(100),
@@ -164,7 +119,30 @@ CREATE TABLE obras(
     nivel_academico VARCHAR(150),
 
     FOREIGN KEY (id_tipo_material) REFERENCES tipo_material(id),
+);
+
+CREATE TABLE ejemplar(
+    id MEDIUMINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_obra MEDIUMINT UNSIGNED NOT NULL,
+    codigo_fisico VARCHAR(25),
+    formato VARCHAR(50),
+    url VARCHAR(100),
+    tipo_de_ingreso VARCHAR(100),
+    anio_ingreso SMALLINT UNSIGNED,
+    id_sede SMALLINT UNSIGNED,
+    ubicacion_fisica VARCHAR(255),
+    id_estado SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    
+    FOREIGN KEY (id_obra) REFERENCES obras(id),
     FOREIGN KEY (id_sede) REFERENCES sedes(id),
-    FOREIGN KEY (id_estado) REFERENCES estado_obra(id),
-    CONSTRAINT uq_libros_codigo UNIQUE (codigo_fisico)
+    FOREIGN KEY (id_estado) REFERENCES estado_ejemplar(id),
+    CONSTRAINT uq_ejemplar_codigo UNIQUE (codigo_fisico)
+);
+
+CREATE TABLE obra_subarea_tematica (
+    id_obra MEDIUMINT UNSIGNED NOT NULL,
+    id_subarea SMALLINT UNSIGNED NOT NULL,
+    PRIMARY KEY (id_obra, id_subarea),
+    FOREIGN KEY (id_obra) REFERENCES obras(id),
+    FOREIGN KEY (id_subarea) REFERENCES subarea_tematica(id)
 );

@@ -14,17 +14,14 @@ class ObraRepository:
         
         query = f"""
         SELECT 
-            o.id, o.codigo_fisico, o.id_tipo_material, tm.tipo AS tipo_material,
-            o.titulo, o.subtitulo, o.formato, o.anio, o.autor,
-            o.ubicacion_fisica, o.anio_ingreso, o.tipo_de_ingreso,
-            o.id_sede, s.nombre AS nombre_sede, o.id_estado,
+            o.id, o.id_tipo_material, tm.tipo AS tipo_material,
+            o.titulo, o.subtitulo, o.anio, o.autor,
             o.isbn, o.edicion, o.tomo, o.editorial,
             o.issn, o.volumen, o.numero,
             o.institucion, o.nivel_academico,
             at.id AS area_id, at.nombre AS area_nombre,
             st.id AS subarea_id, st.nombre AS subarea_nombre
         FROM obras o
-        JOIN sedes s ON o.id_sede = s.id
         JOIN tipo_material tm ON o.id_tipo_material = tm.id
         LEFT JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
         LEFT JOIN subarea_tematica st ON ost.id_subarea = st.id
@@ -51,30 +48,21 @@ class ObraRepository:
         try:
             sql = """
                 INSERT INTO obras (
-                    codigo_fisico, id_tipo_material, titulo, subtitulo,
-                    formato, anio, autor, ubicacion_fisica,
-                    anio_ingreso, tipo_de_ingreso,
-                    id_sede, id_estado, isbn,
+                    id_tipo_material, titulo, subtitulo,
+                    anio, autor, isbn,
                     edicion, tomo, editorial,
                     issn, volumen, numero,
                     institucion, nivel_academico
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
             cursor.execute(sql, (
-                obra_data.codigo_fisico,
                 obra_data.id_tipo_material,
                 obra_data.titulo,
                 obra_data.subtitulo,
-                obra_data.formato,
                 obra_data.anio,
                 obra_data.autor,
-                obra_data.ubicacion_fisica,
-                obra_data.anio_ingreso,
-                obra_data.tipo_de_ingreso,
-                obra_data.id_sede,
-                obra_data.id_estado,
                 obra_data.isbn,
                 obra_data.edicion,
                 obra_data.tomo,
