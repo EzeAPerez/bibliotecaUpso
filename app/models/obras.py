@@ -1,9 +1,6 @@
 from typing import List, Optional
 from sqlmodel import SQLModel, Field
 
-from models.area_tematica import AreaTematica
-from models.obras_subareas import obrasysubareas
-
 class Obras(SQLModel, table=True):
     __tablename__ = "obras"
 
