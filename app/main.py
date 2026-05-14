@@ -3,7 +3,7 @@ from api.routes import obras, area_tematica, subarea_tematica, obras_subareas, s
 
 app = FastAPI()
 
-app.include_router(auth_prueba.router)
+app.include_router(auth.router)
 app.include_router(obras.router)
 app.include_router(area_tematica.router)
 app.include_router(subarea_tematica.router)
