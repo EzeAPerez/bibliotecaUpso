@@ -146,3 +146,33 @@ CREATE TABLE obra_subarea_tematica (
     FOREIGN KEY (id_obra) REFERENCES obras(id),
     FOREIGN KEY (id_subarea) REFERENCES subarea_tematica(id)
 );
+
+
+CREATE TABLE estado_reserva(
+    id SMALLINT UNSIGNED PRIMARY KEY,
+    estado VARCHAR(50) NOT NULL
+);
+
+INSERT INTO estado_reserva (id, estado) VALUES 
+(1, 'EN_ESPERA'), 
+(2, 'CONFIRMADO'), 
+(3, 'VENCIDO'), 
+(4, 'EN_VIAJE');
+
+CREATE TABLE reserva(
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_obra MEDIUMINT UNSIGNED NOT NULL,
+    id_ejemplar MEDIUMINT UNSIGNED,
+    id_user INT UNSIGNED NOT NULL,
+    id_sede SMALLINT UNSIGNED,
+    fecha_solicitud DATE,
+    fecha_confirmacion DATE,
+    fecha_retiro DATE,
+    id_estado SMALLINT UNSIGNED,
+
+    FOREIGN KEY (id_obra) REFERENCES obras(id),
+    
+    FOREIGN KEY (id_sede) REFERENCES sedes(id),
+    FOREIGN key (id_estado) REFERENCES estado_reserva(id)
+);
+-- FOREIGN KEY (id_user) REFERENCES user(id), se debe agregar cuando se tenga la base completa con la tabla user/usuario
