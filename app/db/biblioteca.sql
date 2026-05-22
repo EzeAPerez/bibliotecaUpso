@@ -98,6 +98,20 @@ CREATE TABLE subarea_tematica(
 );
 INSERT INTO subarea_tematica (nombre, id_area_tematica) values ('Sociologia', 1);
 
+
+CREATE TABLE nivel_academico (
+    id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    CONSTRAINT uq_nombre UNIQUE (nombre)
+);
+
+INSERT INTO nivel_academico (id, nombre) VALUES 
+(1, 'doctorado'), 
+(2, 'maestria'), 
+(3, 'especializacion'), 
+(4, 'grado'),
+(5, 'otro');
+
 CREATE TABLE obras(
     id MEDIUMINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, 
     id_tipo_material SMALLINT UNSIGNED NOT NULL,
@@ -116,24 +130,50 @@ CREATE TABLE obras(
     numero VARCHAR(100),
 
     institucion VARCHAR(255),
-    nivel_academico VARCHAR(150),
+    nivel_academico SMALLINT UNSIGNED,
 
     FOREIGN KEY (id_tipo_material) REFERENCES tipo_material(id),
+    FOREIGN kEY (nivel_academico) REFERENCES nivel_academico(id)
 );
+
+CREATE TABLE tipo_ingreso (
+    id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    CONSTRAINT uq_nombre UNIQUE (nombre)
+);
+
+INSERT INTO tipo_ingreso (id, nombre) VALUES 
+(1, 'donacion'), 
+(2, 'compra'), 
+(3, 'otro');
+
+CREATE TABLE formato (
+    id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    CONSTRAINT uq_nombre UNIQUE (nombre)
+);
+
+INSERT INTO formato (id, nombre) VALUES 
+(1, 'fisico'), 
+(2, 'digital'), 
+(3, 'otro');
+
 
 CREATE TABLE ejemplar(
     id MEDIUMINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     id_obra MEDIUMINT UNSIGNED NOT NULL,
     codigo_fisico VARCHAR(25),
-    formato VARCHAR(50),
+    formato SMALLINT UNSIGNED,
     url VARCHAR(100),
-    tipo_de_ingreso VARCHAR(100),
+    tipo_de_ingreso SMALLINT UNSIGNED,
     anio_ingreso SMALLINT UNSIGNED,
     id_sede SMALLINT UNSIGNED,
     ubicacion_fisica VARCHAR(255),
     id_estado SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     
     FOREIGN KEY (id_obra) REFERENCES obras(id),
+    FOREIGN KEY (formato) REFERENCES formato(id),
+    FOREIGN KEY (tipo_de_ingreso) REFERENCES tipo_ingreso(id),
     FOREIGN KEY (id_sede) REFERENCES sedes(id),
     FOREIGN KEY (id_estado) REFERENCES estado_ejemplar(id),
     CONSTRAINT uq_ejemplar_codigo UNIQUE (codigo_fisico)
@@ -155,14 +195,15 @@ CREATE TABLE estado_reserva(
 
 INSERT INTO estado_reserva (id, estado) VALUES 
 (1, 'EN_ESPERA'), 
-(2, 'CONFIRMADO'), 
-(3, 'VENCIDO'), 
-(4, 'EN_VIAJE');
+(2, 'CONFIRMADO'),
+(3, 'RETIRADO'), 
+(4, 'VENCIDO'), 
+(5, 'EN_VIAJE'),
+(6, 'CANCELADO');
 
 CREATE TABLE reserva(
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     id_obra MEDIUMINT UNSIGNED NOT NULL,
-    id_ejemplar MEDIUMINT UNSIGNED,
     id_user INT UNSIGNED NOT NULL,
     id_sede SMALLINT UNSIGNED,
     fecha_solicitud DATE,
@@ -176,3 +217,75 @@ CREATE TABLE reserva(
     FOREIGN key (id_estado) REFERENCES estado_reserva(id)
 );
 -- FOREIGN KEY (id_user) REFERENCES user(id), se debe agregar cuando se tenga la base completa con la tabla user/usuario
+CREATE TABLE estado_traslados (
+    id SMALLINT UNSIGNED PRIMARY KEY,
+    estado VARCHAR(50) NOT NULL
+);
+
+INSERT INTO estado_traslados (id, estado) VALUES 
+(1, 'SOLICITADO_TRASLADO'), 
+(2, 'CONFIRMADO'),
+(3, 'CANCELADO'), 
+(4, 'FINALIZADO');
+
+CREATE TABLE traslados (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_ejemplar MEDIUMINT UNSIGNED,
+    id_reserva INT UNSIGNED,
+    id_sede_origen SMALLINT UNSIGNED,
+    id_sede_destino SMALLINT UNSIGNED,
+    fecha_solicitud DATE, 
+    fecha_entrega DATE,
+    encargado VARCHAR(255),
+    observaciones VARCHAR(255), 
+    id_estado SMALLINT UNSIGNED,
+
+    FOREIGN KEY (id_ejemplar) REFERENCES ejemplar(id),
+    FOREIGN KEY (id_reserva) REFERENCES reserva(id),
+    FOREIGN KEY (id_sede_origen) REFERENCES sedes(id),
+    FOREIGN KEY (id_sede_destino) REFERENCES sedes(id),
+    FOREIGN KEY (id_estado) REFERENCES estado_traslados(id)
+);
+
+CREATE TABLE restricciones (
+    id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    cantidad_obras TINYINT UNSIGNED NOT NULL,
+    cantidad_dias TINYINT UNSIGNED NOT NULL,
+    cantidad_renovaciones TINYINT UNSIGNED NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO restricciones (cantidad_obras, cantidad_dias, cantidad_renovaciones) VALUES 
+(3, 14, 1);
+
+CREATE TABLE estado_prestamo(
+    id SMALLINT UNSIGNED PRIMARY key,
+    estado VARCHAR(50) NOT NULL
+);
+
+INSERT INTO estado_prestamo (id, estado) VALUES 
+(1, 'ACTIVO'), 
+(2, 'VENCIDO'), 
+(3, 'FINALIZADO');
+
+
+CREATE TABLE prestamos(
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY kEY,
+    id_ejemplar MEDIUMINT UNSIGNED NOT NULL,
+    id_reserva MEDIUMINT UNSIGNED,
+    id_user INT UNSIGNED NOT NULL,
+    id_sede SMALLINT UNSIGNED,
+    fecha_prestamo DATE,
+    fecha_vencimiento DATE,
+    fecha_devolucion DATE,
+    id_estado SMALLINT UNSIGNED,
+    
+    FOREIGN KEY (id_ejemplar) REFERENCES ejemplar(id),
+    FOREIGN KEY (id_sede) REFERENCES sedes(id),
+    FOREIGN KEY (id_estado) REFERENCES estado_prestamo(id)
+);
+
