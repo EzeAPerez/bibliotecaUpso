@@ -13,7 +13,7 @@ class Reserva(SQLModel, table=True):
     fecha_solicitud: date
     fecha_confirmacion: Optional[date] = Field(default=None)
     fecha_retiro: Optional[date] = Field(default=None)
-    id_estado: int = Field(default=1, foreign_key="estado_reserva")
+    id_estado: int = Field(default=1, foreign_key="estado_reserva.id")
 
 
 class ReservaUpdate(SQLModel):
