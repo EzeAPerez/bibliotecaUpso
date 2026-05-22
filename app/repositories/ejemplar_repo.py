@@ -226,3 +226,44 @@ class EjemplarRepository:
         conexion.close()
 
         return total
+
+    @staticmethod
+    def bloquear_disponibles(conexion, id_obra):
+
+        cursor = conexion.cursor(dictionary=True)
+
+        sql = """
+            SELECT id, id_sede
+            FROM ejemplar
+            WHERE id_obra = %s
+            AND id_estado = 1
+            FOR UPDATE
+        """
+
+        cursor.execute(sql, (id_obra,))
+
+        return cursor.fetchall()
+
+    
+    @staticmethod
+    def actualizar_estado(conexion, id, id_estado):
+    
+        cursor = conexion.cursor(dictionary=True)
+        
+        try:
+            sql = f"UPDATE ejemplar SET id_estado = %s WHERE id = %s"
+            
+            cursor.execute(sql, (id_estado, id))
+
+            if cursor.rowcount == 0:
+                return None
+            
+            return cursor.rowcount
+            
+        except IntegrityError as e:
+            raise e
+
+        finally:
+            cursor.close()
+
+    
