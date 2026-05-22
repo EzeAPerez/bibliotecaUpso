@@ -43,6 +43,38 @@ class PrestamosService:
         return rows
     
     @staticmethod
+    def actualizar(id, data):
+        conexion = get_connection()
+
+        try:
+            id_estado = data.pop("id_estado", None)
+
+            result = PrestamosRepository.actualizar(id, data, conexion)
+
+            response_estado = None
+        
+            if id_estado is not None and id_estado != result["id_estado"]:
+                response_estado = (
+                    PrestamosService.modificar_estado(
+                        id, id_estado, conexion
+                    )
+                )
+            
+            conexion.commit()
+            
+            return {
+                "prestamo": result,
+                "estado": response_estado
+            }
+        
+        except Exception:
+            conexion.rollback()
+            raise
+        finally:
+            conexion.close
+
+
+    @staticmethod
     def modificar_estado(id, id_estado, conexion=None):
 
         own_connection = conexion is None
@@ -58,12 +90,6 @@ class PrestamosService:
                     conexion
                 )
             )
-
-            if not prestamo_modificado:
-
-                raise LookupError(
-                    "Prestamos no encontrado o no válido."
-                )
 
             response = {
                 "Nuevo estado prestamo": id_estado,

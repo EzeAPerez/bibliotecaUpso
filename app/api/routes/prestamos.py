@@ -50,7 +50,6 @@ def crear_prestamo(
 @router.patch(
     "/{id}", 
     status_code=status.HTTP_200_OK,
-    response_model=Prestamos,
     summary="Modificar prestamo",
     description="Modificar el contenido de un prestamo con id pasado por parametro. Solo accesible para Aministradores.",
     tags=[router.tags[0]]
@@ -62,16 +61,15 @@ def modificar_prestamo(
 ):
     try:
         data = obra_update.model_dump()
-        result = PrestamosRepository.actualizar(id, data)
-        
-        if not result:
-            raise HTTPException(404, "Reserva no encontrada")
-        else:
-            return result
-    
-    except IntegrityError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error de integridad: {e.msg}")
 
+        return PrestamosService.actualizar(id, data)
+
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error de integridad: {e.msg}"
+        )
+    
 @router.patch(
     "/{id}/estado",
     status_code=status.HTTP_200_OK,

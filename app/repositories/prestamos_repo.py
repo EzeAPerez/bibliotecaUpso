@@ -70,30 +70,47 @@ class PrestamosRepository:
 
     
     @staticmethod
-    def actualizar(id: int, campos: dict):
-        conexion = get_connection()
+    def actualizar(id: int, campos: dict, conexion):
+        
         cursor = conexion.cursor(dictionary=True)
 
         try:
+            if not campos:
+
+                cursor.execute(
+                    "SELECT * FROM prestamos WHERE id = %s",
+                    (id,)
+                )
+
+                prestamo = cursor.fetchone()
+
+                if not prestamo:
+                    raise LookupError(
+                        "Reserva no encontrada"
+                    )
+
+                return prestamo
+             
             set_clause = ", ".join([f"{k} = %s" for k in campos.keys()])
             sql = f"UPDATE prestamos SET {set_clause} WHERE id = %s"
             
             cursor.execute(sql, (*campos.values(), id))
-            conexion.commit()
-
-            if cursor.rowcount == 0:
-                return None
             
             cursor.execute("SELECT * FROM prestamos WHERE id = %s", (id,))
 
-            return cursor.fetchone()
+            prestamo = cursor.fetchone()
+
+            if not prestamo:
+                raise LookupError(
+                    "Prestamo no encontrada"
+                )
+
+            return prestamo
         
         except IntegrityError as e:
-            conexion.rollback()
             raise e
         finally:
             cursor.close()
-            conexion.close()
 
     @staticmethod
     def actualizarEstado(id, id_estado, conexion= None):
@@ -107,11 +124,18 @@ class PrestamosRepository:
 
         try: 
 
-            sql = """
-                    UPDATE prestamos
-                    SET id_estado = %s
-                    WHERE id = %s
-                """
+            if id_estado == 3:
+                sql = """
+                        UPDATE prestamos
+                        SET id_estado = %s, fecha_devolucion = NOW()
+                        WHERE id = %s
+                    """
+            else:
+                sql = """
+                        UPDATE prestamos
+                        SET id_estado = %s
+                        WHERE id = %s
+                    """
 
             cursor.execute(sql, (id_estado, id))
 
