@@ -18,11 +18,12 @@ class ObraRepository:
             o.titulo, o.subtitulo, o.anio, o.autor,
             o.isbn, o.edicion, o.tomo, o.editorial,
             o.issn, o.volumen, o.numero,
-            o.institucion, o.nivel_academico,
+            o.institucion, o.nivel_academico, na.nombre AS nombre_nivel_academico,
             at.id AS area_id, at.nombre AS area_nombre,
             st.id AS subarea_id, st.nombre AS subarea_nombre
         FROM obras o
         JOIN tipo_material tm ON o.id_tipo_material = tm.id
+        JOIN nivel_academico na ON o.nivel_academico = na.id
         LEFT JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
         LEFT JOIN subarea_tematica st ON ost.id_subarea = st.id
         LEFT JOIN area_tematica at ON st.id_area_tematica = at.id

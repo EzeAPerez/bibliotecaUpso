@@ -25,7 +25,7 @@ class Obras(SQLModel, table=True):
 
     ##Tessis##
     institucion: Optional[str] = Field(default=None, max_length=255)
-    nivel_academico: Optional[str] = Field(default=None, max_length=150)
+    nivel_academico: Optional[int] = Field(default=None, foreign_key="nivel_academico.id")
 
 class ObraUpdate(SQLModel):
     id_tipo_material: Optional[int] = None
@@ -47,7 +47,7 @@ class ObraUpdate(SQLModel):
 
     ## Tesis ##
     institucion: Optional[str] = Field(default=None, max_length=100)
-    nivel_academico: Optional[str] = Field(default=None, max_length=100)
+    nivel_academico: Optional[int] = Field(default=None,)
 
 class ObraCreate(SQLModel):
     id_tipo_material: int 
@@ -66,7 +66,7 @@ class ObraCreate(SQLModel):
     numero: str | None = Field(default=None, max_length=100)
 
     institucion: str | None = Field(default=None, max_length=100)
-    nivel_academico: str | None = Field(default=None, max_length=100)
+    nivel_academico: int | None = Field(default=None)
 
     subareas: List[int] = Field(default_factory=list)
 
@@ -100,6 +100,7 @@ class ObraDetallada(SQLModel):
     numero: Optional[str]
 
     institucion: Optional[str]
-    nivel_academico: Optional[str]
+    nivel_academico: Optional[int]
+    nombre_nivel_academico: Optional[str]
 
     areas: List[Area]
