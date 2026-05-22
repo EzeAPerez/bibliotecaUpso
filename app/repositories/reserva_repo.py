@@ -184,32 +184,130 @@ class ReservaRepository:
         finally:
             cursor.close()
             conexion.close()
-    
+
     @staticmethod
-    def actualizar(id: int, campos: dict):
-        conexion = get_connection()
+    def crear_confirmada(conexion, reserva_data, id_ejemplar):
+        cursor = conexion.cursor()
+
+        try: 
+            sql = """
+                INSERT INTO reserva (
+                    id_obra,
+                    id_ejemplar,
+                    id_user,
+                    id_sede,
+                    fecha_solicitud,
+                    fecha_confirmacion,
+                    id_estado
+                )
+                VALUES (%s, %s, %s, %s, NOW(), NOW(), 2)
+            """
+
+            valores = (
+                reserva_data["id_obra"],
+                id_ejemplar,
+                reserva_data["id_user"],
+                reserva_data["id_sede"],
+            )
+
+            cursor.execute(sql, valores)
+
+            return cursor.lastrowid
+
+        except Exception as e:
+            conexion.rollback()
+            raise e
+        finally:
+            cursor.close()
+
+    @staticmethod
+    def crear_en_espera(conexion, reserva_data):
+        cursor = conexion.cursor()
+
+        try: 
+            sql = """
+                INSERT INTO reserva (
+                    id_obra,
+                    id_user,
+                    id_sede,
+                    fecha_solicitud,
+                    id_estado
+                )
+                VALUES (%s, %s, %s, NOW(), 1)
+            """
+
+            valores = (
+                reserva_data["id_obra"],
+                reserva_data["id_user"],
+                reserva_data["id_sede"],
+            )
+
+            cursor.execute(sql, valores)
+
+            conexion.commit()
+
+            return cursor.lastrowid
+
+        except Exception as e:
+            conexion.rollback()
+            raise e
+
+    @staticmethod
+    def actualizar(id: int, campos: dict, conexion):
+
         cursor = conexion.cursor(dictionary=True)
 
         try:
-            set_clause = ", ".join([f"{k} = %s" for k in campos.keys()])
-            sql = f"UPDATE reserva SET {set_clause} WHERE id = %s"
 
-            cursor.execute(sql, (*campos.values(), id))
-            conexion.commit()
+            campos.pop("id_estado", None)
 
-            if cursor.rowcount == 0:
-                return None
-            
-            cursor.execute("SELECT * FROM reserva WHERE id = %s", (id,))
+            if not campos:
 
-            return cursor.fetchone()
-        
-        except IntegrityError as e:
-            conexion.rollback()
-            raise e
-        finally: 
+                cursor.execute(
+                    "SELECT * FROM reserva WHERE id = %s",
+                    (id,)
+                )
+
+                reserva = cursor.fetchone()
+
+                if not reserva:
+                    raise LookupError(
+                        "Reserva no encontrada"
+                    )
+
+                return reserva
+
+            set_clause = ", ".join(
+                [f"{k} = %s" for k in campos.keys()]
+            )
+
+            sql = f"""
+                UPDATE reserva
+                SET {set_clause}
+                WHERE id = %s
+            """
+
+            cursor.execute(
+                sql,
+                (*campos.values(), id)
+            )
+
+            cursor.execute(
+                "SELECT * FROM reserva WHERE id = %s",
+                (id,)
+            )
+
+            reserva = cursor.fetchone()
+
+            if not reserva:
+                raise LookupError(
+                    "Reserva no encontrada"
+                )
+
+            return reserva
+
+        finally:
             cursor.close()
-            conexion.close()
     
     @staticmethod
     def eliminar(id: int):
@@ -256,3 +354,108 @@ class ReservaRepository:
         conexion.close()
 
         return total
+    
+
+    @staticmethod
+    def actualizarEstado(
+        id: int,
+        id_estado: int,
+        conexion=None
+    ):
+
+        own_connection = conexion is None
+
+        if own_connection:
+            conexion = get_connection()
+
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            if id_estado == 2:
+
+                sql = """
+                    UPDATE reserva
+                    SET
+                        id_estado = %s,
+                        fecha_confirmacion = NOW()
+                    WHERE id = %s
+                    AND id_ejemplar IS NOT NULL
+                """
+
+                cursor.execute(sql, (id_estado, id))
+
+            elif id_estado == 3:
+
+                sql = """
+                    UPDATE reserva
+                    SET
+                        id_estado = %s,
+                        fecha_retiro = NOW()
+                    WHERE id = %s
+                    AND id_estado = 2
+                    AND id_ejemplar IS NOT NULL
+                """
+
+                cursor.execute(sql, (id_estado, id))
+
+            else:
+
+                sql = """
+                    UPDATE reserva
+                    SET id_estado = %s
+                    WHERE id = %s
+                """
+
+                cursor.execute(sql, (id_estado, id))
+
+            if own_connection:
+                conexion.commit()
+
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    "Si se desea CONFIRMAR la reserva debe tener un ejemplar asignado. Si se desea cambiar a RETIRAR, la reserva debe tener estado CONFIRMAR y contar con un ejemplar asignado."
+                )
+
+            return True
+        
+        except IntegrityError as e:
+
+            if own_connection:
+                conexion.rollback()
+
+            raise e
+
+        except Exception as e:
+
+            if own_connection:
+                conexion.rollback()
+
+            raise e
+
+        finally:
+
+            cursor.close()
+
+            if own_connection:
+                conexion.close()  
+  
+    @staticmethod
+    def contar_reservas_en_espera(
+        conexion,
+        id_obra
+    ):
+
+        cursor = conexion.cursor(dictionary=True)
+
+        sql = """
+            SELECT COUNT(*) AS total
+            FROM reserva
+            WHERE id_obra = %s
+            AND (id_estado = 1 OR id_estado = 5)
+        """
+
+        cursor.execute(sql, (id_obra,))
+
+        resultado = cursor.fetchone()
+
+        return resultado["total"]

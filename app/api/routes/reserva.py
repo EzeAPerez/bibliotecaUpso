@@ -1,7 +1,7 @@
 from errno import errorcode
 
-from fastapi import APIRouter, HTTPException, Depends, status
-from models.reserva import Reserva, ReservaCreate, ReservaDetallada, ReservaUpdate
+from fastapi import APIRouter, HTTPException, Depends, status, Query
+from models.reserva import Reserva, ReservaCreate, ReservaDetallada, ReservaUpdate, ReservaCreateUser
 from typing import List
 from mysql.connector import IntegrityError, errorcode
 from repositories.reserva_repo import ReservaRepository
@@ -19,16 +19,16 @@ router = APIRouter(
 )
 
 @router.post(
-    "",
+    "/general/",
     status_code=status.HTTP_201_CREATED,
     response_model=int,
     summary="Crear una reserva",
-    description="Crear una nueva reserva en la base de datos. Accesibles para todos los usuarios.",
+    description="Crear una nueva reserva en la base de datos. Accesibles para todos los administradores.",
     tags=[router.tags[0]]
 )
-def crear_reserva(
+def crear_reserva_general(
     reserva: ReservaCreate, 
-    current_user = Depends(allow_everyone)
+    current_user = Depends(allow_any_admin)
 ):
     try: 
         user_id = current_user["id"]
@@ -46,11 +46,42 @@ def crear_reserva(
             detail=f"Error de integridad: {e.msg}"
         )
     
+## Crea una reserva del lado del usuario. Solo debe mandar la obra y la sede, el resto se encarga el sistema.
 
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=int,
+    summary="Crear una reserva.",
+    description="Crear una nueva reserva en la base de datos. Accesibles para todos los usuarios.",
+    tags=[router.tags[0]]
+)
+def crear_reserva(
+    reserva: ReservaCreateUser, 
+    current_user = Depends(allow_everyone)
+):
+    try: 
+        user_id = current_user["id"]
+
+        reserva_data = reserva.model_dump()
+        reserva_data["id_user"] = user_id
+
+        return ReservaService.crear(reserva_data)
+
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error de integridad: {e.msg}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    
 @router.patch(
     "/{id}", 
     status_code=status.HTTP_200_OK,
-    response_model=Reserva,
     summary="Modificar reserva",
     description="Modificar el contenido de una reserva con id pasado por parametro. Solo accesible para Aministradores.",
     tags=[router.tags[0]]
@@ -61,18 +92,64 @@ def modificar_reserva(
     user = Depends(allow_any_admin)
 ):
     try:
-        data = obra_update.model_dump()
-        result = ReservaRepository.actualizar(id, data)
-        
-        if not result:
-            raise HTTPException(404, "Reserva no encontrada")
-        else:
-            return result
-    
+        data = obra_update.model_dump(exclude_unset=True)
+
+        return ReservaService.actualizar_admin(
+            id,
+            data
+        )
+
+    except LookupError as e:
+
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+
+    except ValueError as e:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
     except IntegrityError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error de integridad: {e.msg}")
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error de integridad: {e.msg}"
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor:"
+        )
 
 
+@router.patch(
+    "/{id}/estado",
+    status_code=status.HTTP_200_OK,
+    summary="Modificar el estado de la reserva",
+    description="Modificar el estado de la reserva. Accesible para todos los usuarios.",
+    tags=[router.tags[0]]
+)
+def modificar_estado_reserva(
+    id: int, 
+    id_estado: int = Query(ge=1, le=6),
+    current_user = Depends(allow_any_admin)
+):
+    
+    try:
+        return ReservaService.modificar_estado(id, id_estado)
+        
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
 @router.delete(
     "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,

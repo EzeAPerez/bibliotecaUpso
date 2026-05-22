@@ -34,6 +34,11 @@ class ReservaCreate(SQLModel):
     fecha_retiro: Optional[date] = None
     id_estado: int
 
+class ReservaCreateUser(SQLModel):
+    id_obra: int
+    id_sede: int
+
+
 class ReservaDetallada(SQLModel):
     id: int
     id_obra:int
