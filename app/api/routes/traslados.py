@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List
 from mysql.connector import errorcode, IntegrityError
 from repositories.traslados_repo import TrasladosRepository
-from models.traslados import Traslados, TrasladosUpdate
+from models.traslados import Traslados, TrasladosUpdate, TrasladosCreate, TrasladosDetallado
 from services.traslados_services import TrasladosService
 
 from core.security import (
@@ -19,7 +19,7 @@ router = APIRouter(
 
 @router.get(
     "", 
-    response_model=list[Traslados],
+    response_model=list[TrasladosDetallado],
     tags=[router.tags[0]],
     summary="Obtener traslados",
     description="Obtener todos los traslados."
@@ -33,6 +33,34 @@ def get_reservas(
     rows = TrasladosRepository.obtener(page=page, limit=limit)
 
     return rows
+
+
+@router.post(
+    "",
+    response_model=int,
+    summary="Crear un tnuevo traslado",
+    description="Crea un nuevo traslado con los datos pasados por Request body. Solo accesible para SuperAdmin.",
+    status_code=status.HTTP_201_CREATED,
+    tags=[router.tags[0]]
+)
+async def crear_traslado(
+    tipo_ingreso: TrasladosCreate, 
+    user = Depends(allow_super_admin)
+):
+    try:
+        return TrasladosRepository.crear(tipo_ingreso)
+    
+    except IntegrityError as e:
+
+        if e.errno == errorcode.ER_DUP_ENTRY:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya existe un traslado con esos datos."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error de integridad en la base de datos."
+        )
 
 @router.patch(
     "/{id}",
@@ -129,3 +157,37 @@ def eliminar_Traslado(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error de integridad en la base de datos."
         )
+
+
+@router.get(
+    "/{id}", 
+    response_model=TrasladosDetallado,
+    tags=[router.tags[0]],
+    summary="Obtener traslado por id",
+    description="Obtener el traslado con id pasado por parametro."
+)
+def get_reservas(
+    id: int, 
+    user = Depends(allow_any_admin)
+    ):
+
+    rows = TrasladosService.obtener_por_id(id)
+
+    return rows
+
+
+@router.get(
+    "/estado/{id_estado}", 
+    response_model=list[TrasladosDetallado],
+    tags=[router.tags[0]],
+    summary="Obtener traslados por estado",
+    description="Obtener todos los traslados con el estado pasado por parametro."
+)
+def get_reservas(
+    id_estado: int, 
+    user = Depends(allow_any_admin)
+    ):
+
+    rows = TrasladosService.obtener_por_estado(id_estado)
+
+    return rows

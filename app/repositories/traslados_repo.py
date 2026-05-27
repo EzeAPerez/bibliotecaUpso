@@ -12,9 +12,49 @@ class TrasladosRepository:
         where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
         
         query = f"""
-        SELECT 
-            *
-        FROM traslados
+        SELECT
+            t.id,
+
+            t.id_ejemplar,
+            e.codigo_fisico AS codigo_ejemplar,
+
+            o.titulo AS titulo_obra,
+            o.subtitulo AS subtitulo_obra,
+
+            t.id_reserva,
+
+            t.id_sede_origen,
+            so.nombre AS nombre_sede_origen,
+
+            t.id_sede_destino,
+            sd.nombre AS nombre_sede_destino,
+
+            t.fecha_solicitud,
+            t.fecha_entrega,
+
+            t.encargado,
+            t.observaciones,
+
+            t.id_estado,
+            et.estado AS nombre_estado
+
+        FROM traslados t
+
+        LEFT JOIN ejemplar e
+            ON t.id_ejemplar = e.id
+
+        LEFT JOIN obras o
+            ON e.id_obra = o.id
+
+        LEFT JOIN sedes so
+            ON t.id_sede_origen = so.id
+
+        LEFT JOIN sedes sd
+            ON t.id_sede_destino = sd.id
+
+        LEFT JOIN estado_traslados et
+            ON t.id_estado = et.id
+        
         {where_sql}
         ORDER BY id DESC
         LIMIT %s OFFSET %s
@@ -44,9 +84,9 @@ class TrasladosRepository:
                     fecha_entrega,
                     encargado,
                     observaciones, 
-                    estado
+                    id_estado
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s)
             """
 
             valores = (
@@ -54,11 +94,10 @@ class TrasladosRepository:
                 traslados_data.id_reserva,
                 traslados_data.id_sede_origen,
                 traslados_data.id_sede_destino,
-                traslados_data.fecha_solicitud,
                 traslados_data.fecha_entrega,
                 traslados_data.encargado,
                 traslados_data.observaciones, 
-                traslados_data.estado
+                traslados_data.id_estado
             )
 
             cursor.execute(sql, valores)

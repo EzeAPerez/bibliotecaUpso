@@ -6,6 +6,36 @@ from services.reserva_services import ReservaService
 class TrasladosService:
 
     @staticmethod
+    def obtener_por_id(
+        id: int
+    ):
+        rows = TrasladosRepository.obtener(
+            where_clauses=[
+                "t.id = %s"
+            ],
+            params=[id]
+        )
+        if rows:
+            return rows[0]
+        else: 
+            None
+
+    @staticmethod
+    def obtener_por_estado(
+        id_estado: int
+    ):
+        rows = TrasladosRepository.obtener(
+            where_clauses=[
+                "t.id_estado = %s"
+            ],
+            params=[id_estado]
+        )
+        if rows:
+            return rows
+        else: 
+            None
+
+    @staticmethod
     def modificar_estado(
         id: int,
         id_estado: int,
