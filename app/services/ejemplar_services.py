@@ -18,9 +18,11 @@ class EjemplarService:
 
                     "codigo_fisico": r["codigo_fisico"],
                     "formato": r["formato"],
+                    "nombre_formato": r["nombre_formato"],
                     "ubicacion_fisica": r["ubicacion_fisica"],
                     "anio_ingreso": r["anio_ingreso"],
                     "tipo_de_ingreso": r["tipo_de_ingreso"],
+                    "nombre_tipo_ingreso": r["nombre_tipo_ingreso"],
 
                     "id_sede": r["sede_id"],
                     "nombre_sede": r["sede_nombre"],
@@ -49,6 +51,7 @@ class EjemplarService:
 
                     "institucion": r["institucion"],
                     "nivel_academico": r["nivel_academico"],
+                    "nombre_nivel_academico": r["nombre_nivel_academico"],
 
                     "areas": []
                 }

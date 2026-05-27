@@ -38,16 +38,18 @@ class EjemplarRepository:
                     e.id_obra,
                     e.codigo_fisico,
                     e.formato,
+                    f.nombre AS nombre_formato,
                     e.url,
                     e.tipo_de_ingreso,
+                    ti.nombre AS nombre_tipo_ingreso,
                     e.anio_ingreso,
                     e.ubicacion_fisica,
 
                     s.id AS sede_id,
                     s.nombre AS sede_nombre,
 
-                    eo.id AS estado_id,
-                    eo.estado AS estado_nombre,
+                    ee.id AS estado_id,
+                    ee.estado AS estado_nombre,
 
                     o.id AS obra_id,
                     o.id_tipo_material,
@@ -70,6 +72,7 @@ class EjemplarRepository:
 
                     o.institucion,
                     o.nivel_academico,
+                    na.nombre AS nombre_nivel_academico,
 
                     at.id AS area_id,
                     at.nombre AS area_nombre,
@@ -82,18 +85,26 @@ class EjemplarRepository:
                 JOIN obras o
                     ON e.id_obra = o.id
 
+                LEFT JOIN formato f
+                    ON e.formato = f.id
+                
+                LEFT JOIN tipo_ingreso ti
+                    ON e.tipo_de_ingreso = ti.id
+                
                 JOIN tipo_material tm
                     ON o.id_tipo_material = tm.id
 
                 LEFT JOIN sedes s
                     ON e.id_sede = s.id
 
-                JOIN estado_obra eo
-                    ON e.id_estado = eo.id
+                JOIN estado_ejemplar ee
+                    ON e.id_estado = ee.id
 
                 LEFT JOIN obra_subarea_tematica ost
                     ON o.id = ost.id_obra
 
+                LEFT JOIN nivel_academico na
+                    ON o.nivel_academico = na.id
                 LEFT JOIN subarea_tematica st
                     ON ost.id_subarea = st.id
 
