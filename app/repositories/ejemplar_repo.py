@@ -190,6 +190,21 @@ class EjemplarRepository:
             cursor.close()
             conexion.close()
 
+    @staticmethod 
+    def actualizar_sede(id, id_sede, conexion): 
+        cursor = conexion.cursor() 
+        try: 
+            sql = """ UPDATE ejemplar SET id_sede = %s WHERE id = %s """ 
+            
+            cursor.execute(sql, (id_sede, id)) 
+            print(id, id_sede, cursor.rowcount)
+            return cursor.rowcount 
+        
+        except IntegrityError as e: 
+            raise e 
+        
+        finally: cursor.close()
+
     @staticmethod
     def eliminar(id: int):
         """Elimina obra y subareas asociadas"""
@@ -258,19 +273,19 @@ class EjemplarRepository:
     
     @staticmethod
     def actualizar_estado(conexion, id, id_estado):
-    
+
         cursor = conexion.cursor(dictionary=True)
-        
+        print(f"id ejemplar: {id} id estado: {id_estado}")        
         try:
-            sql = f"UPDATE ejemplar SET id_estado = %s WHERE id = %s"
-            
+            sql = "UPDATE ejemplar SET id_estado = %s WHERE id = %s"
+
             cursor.execute(sql, (id_estado, id))
 
             if cursor.rowcount == 0:
                 return None
-            
+
             return cursor.rowcount
-            
+
         except IntegrityError as e:
             raise e
 

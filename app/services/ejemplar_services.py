@@ -194,3 +194,7 @@ class EjemplarService:
             limit=limit
         )
         return EjemplarService.procesar_ejemplares(rows)
+    
+    @staticmethod
+    def modificar_sede(id, id_sede, conexion):
+        return EjemplarRepository.actualizar_sede(id, id_sede, conexion)
