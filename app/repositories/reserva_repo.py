@@ -310,24 +310,49 @@ class ReservaRepository:
             cursor.close()
     
     @staticmethod
-    def eliminar(id: int):
-        conexion = get_connection()
+    def eliminar(conexion=None, id: int = None):
+
+        # saber si la conexión fue creada acá
+        conexion_local = conexion is None
+
+        if conexion_local:
+            conexion = get_connection()
+
         cursor = conexion.cursor()
 
         try:
-            cursor.execute("DELETE FROM reserva WHERE id = %s", (id,))
+
+            cursor.execute(
+                "DELETE FROM reserva WHERE id = %s",
+                (id,)
+            )
+
             eliminado = cursor.rowcount > 0
 
-            conexion.commit()
-            
+            if conexion_local:
+                conexion.commit()
+
             return eliminado
 
         except IntegrityError as e:
-            conexion.rollback()
+
+            if conexion_local:
+                conexion.rollback()
+
             raise e
+
+        except Exception as e:
+
+            if conexion_local:
+                conexion.rollback()
+
+            raise e
+
         finally:
             cursor.close()
-            conexion.close()
+
+            if conexion_local:
+                conexion.close()
     
     @staticmethod
     def contar(where_clauses=None, params=None):

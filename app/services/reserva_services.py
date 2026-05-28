@@ -143,7 +143,7 @@ class ReservaService:
                     "mensaje": "Estado sin actualizar."
                 }
             
-            if id_estado == 3 and reserva_actualizada:
+            if id_estado == 3:
                 reserva_data = ReservaService.obtener_por_id(id)
 
                 EjemplarRepository.actualizar_estado(
@@ -164,7 +164,7 @@ class ReservaService:
                 response["mensaje"] = (
                     "Estado actualizado y préstamo creado automáticamente."
                 )
-            elif id_estado == 5 and reserva_actualizada:
+            elif id_estado == 5:
                 reserva_data = ReservaService.obtener_por_id(id)
 
                 EjemplarRepository.actualizar_estado(
@@ -225,6 +225,14 @@ class ReservaService:
 
             id_estado = data.pop("id_estado", None)
 
+            reserva_anterior = ( ReservaService.obtener_por_id( id ) ) 
+            
+            if not reserva_anterior: 
+                raise LookupError( "Reserva no encontrada." ) 
+            
+            ejemplar_anterior = ( reserva_anterior["id_ejemplar"] ) 
+
+            nuevo_ejemplar = data.get( "id_ejemplar" )
 
             result = ReservaRepository.actualizar(
                 id,
@@ -232,9 +240,16 @@ class ReservaService:
                 conexion=conexion
             )
 
+            if ( nuevo_ejemplar is not None and nuevo_ejemplar != ejemplar_anterior ): 
+    
+                if ejemplar_anterior is not None: 
+                    EjemplarRepository.actualizar_estado( conexion, ejemplar_anterior, 1 ) 
+                    
+                EjemplarRepository.actualizar_estado( conexion, nuevo_ejemplar, 2) 
+            
             response_estado = None
 
-            if id_estado is not None and id_estado != result["id_estado"]:
+            if id_estado is not None and id_estado != reserva_anterior["id_estado"]:
                     response_estado = (
                         ReservaService.modificar_estado(
                             id,
@@ -337,3 +352,41 @@ class ReservaService:
 
         finally:
             conexion.close()
+
+    @staticmethod
+    def eliminar(id: int):
+        conexion = get_connection()
+
+        try:
+            reserva = ReservaService.obtener_detallada_por_id(id)
+
+            if reserva is None:
+                raise LookupError("Reserva no encontrada")
+
+            # si tiene ejemplar asociado, volverlo a DISPONIBLE
+            if reserva.get("id_ejemplar") is not None:
+                EjemplarRepository.actualizar_estado(
+                    conexion,
+                    reserva["id_ejemplar"],
+                    1
+                )
+
+
+            eliminado = ReservaRepository.eliminar(conexion, id)
+
+            if not eliminado:
+                raise ValueError("No se pudo eliminar la reserva")
+
+            conexion.commit()
+
+            return {
+                "message": "Reserva eliminada correctamente"
+            }
+
+        except Exception as e:
+            conexion.rollback()
+            raise e
+
+        finally:
+            conexion.close()
+

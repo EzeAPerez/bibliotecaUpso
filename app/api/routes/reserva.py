@@ -162,7 +162,7 @@ def eliminar_reserva(
     user = Depends(allow_super_admin)
 ):
     try:
-        eliminado = ReservaRepository.eliminar(id)
+        eliminado = ReservaService.eliminar(id)
         
         if not eliminado:
             raise HTTPException(404, "Reserva no encontrada")
