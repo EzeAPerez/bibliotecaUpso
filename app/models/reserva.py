@@ -49,8 +49,8 @@ class ReservaDetallada(SQLModel):
     id_ejemplar: Optional[int] = None
     codigo_fisico: Optional[str] = None
     
-    id_user: Optional[int] = None ### int // esto es porque no estamos usando la tabla user/usuario
-    email_user: Optional[str] = None ### str // esto es porque no estamos usando la tabla user/usuario
+    id_user: Optional[int] = None
+    correo: Optional[str] = None 
 
     id_sede: int
     nombre_sede: str
