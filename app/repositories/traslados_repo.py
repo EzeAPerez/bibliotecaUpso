@@ -67,13 +67,42 @@ class TrasladosRepository:
             cursor.close()
             conexion.close() 
 
+    
     @staticmethod
     def crear(traslados_data: dict):
+
         conexion = get_connection()
         conexion.autocommit = False
-        cursor = conexion.cursor()
+        cursor = conexion.cursor(dictionary=True)
 
-        try: 
+        try:
+
+            # -----------------------------------------
+            # VALIDAR RESERVA ACTIVA
+            # -----------------------------------------
+            sql_validacion = """
+                SELECT id
+                FROM traslados
+                WHERE id_ejemplar = %s
+                AND id_estado IN (1, 2)
+                LIMIT 1
+            """
+
+            cursor.execute(
+                sql_validacion,
+                (traslados_data.id_ejemplar,)
+            )
+
+            reserva_existente = cursor.fetchone()
+
+            if reserva_existente:
+                raise ValueError(
+                    "El ejemplar ya posee una reserva activa."
+                )
+
+            # -----------------------------------------
+            # CREAR TRASLADO
+            # -----------------------------------------
             sql = """
                 INSERT INTO traslados (
                     id_ejemplar,
@@ -83,20 +112,24 @@ class TrasladosRepository:
                     fecha_solicitud,
                     fecha_entrega,
                     encargado,
-                    observaciones, 
+                    observaciones,
                     id_estado
                 )
-                VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s)
+                VALUES (
+                    %s, %s, %s, %s,
+                    NOW(),
+                    %s, %s, %s, %s
+                )
             """
 
             valores = (
-                traslados_data.id_ejemplar, 
+                traslados_data.id_ejemplar,
                 traslados_data.id_reserva,
                 traslados_data.id_sede_origen,
                 traslados_data.id_sede_destino,
                 traslados_data.fecha_entrega,
                 traslados_data.encargado,
-                traslados_data.observaciones, 
+                traslados_data.observaciones,
                 traslados_data.id_estado
             )
 
@@ -107,12 +140,15 @@ class TrasladosRepository:
             return cursor.lastrowid
 
         except Exception as e:
+
             conexion.rollback()
             raise e
 
         finally:
+
             cursor.close()
             conexion.close()
+
 
     @staticmethod
     def crear_por_reserva(conexion, id_reserva, id_sede):
@@ -215,8 +251,12 @@ class TrasladosRepository:
                 conexion.close()
 
     @staticmethod
-    def actualizarEstado(id, id_estado, conexion= None):
-        
+    def actualizarEstado(
+        id,
+        id_estado,
+        conexion=None
+    ):
+
         own_connection = conexion is None
 
         if own_connection:
@@ -224,46 +264,97 @@ class TrasladosRepository:
 
         cursor = conexion.cursor(dictionary=True)
 
-        try: 
+        try:
 
-            if id_estado == 2 or id_estado == 4:
+            # -----------------------------------------
+            # OBTENER ESTADO ACTUAL
+            # -----------------------------------------
+            cursor.execute(
+                """
+                SELECT *
+                FROM traslados
+                WHERE id = %s
+                """,
+                (id,)
+            )
 
-                    sql = """
-                        UPDATE traslados
-                        SET
-                            id_estado = %s
-                        WHERE id = %s
-                        AND id_ejemplar IS NOT NULL
-                    """
+            traslado = cursor.fetchone()
 
-                    cursor.execute(sql, (id_estado, id))                    
-            else:
-                sql = """
-                        UPDATE traslados
-                        SET id_estado = %s
-                        WHERE id = %s
-                    """
+            if not traslado:
+                return None
 
-                cursor.execute(sql, (id_estado, id))
+            estado_actual = traslado["id_estado"]
 
-            if own_connection: conexion.commit()
+            # -----------------------------------------
+            # VALIDAR TRANSICIONES
+            # -----------------------------------------
 
-            if cursor.rowcount == 0:
-                    return None
+            # estados finales
+            if estado_actual in [3, 4]:
+                raise ValueError(
+                    "El traslado ya se encuentra finalizado."
+                )
 
-            cursor.execute("SELECT * FROM traslados WHERE id= %s", (id, ))
+            # validación extra
+            if (
+                id_estado in [2, 4]
+                and traslado["id_ejemplar"] is None
+            ):
+                raise ValueError(
+                    "El traslado requiere un ejemplar asignado."
+                )
+
+            # -----------------------------------------
+            # UPDATE
+            # -----------------------------------------
+            sql = """
+                UPDATE traslados
+                SET id_estado = %s
+                WHERE id = %s
+            """
+
+            cursor.execute(
+                sql,
+                (id_estado, id)
+            )
+
+            if own_connection:
+                conexion.commit()
+
+            # -----------------------------------------
+            # RETORNAR ACTUALIZADO
+            # -----------------------------------------
+            cursor.execute(
+                """
+                SELECT *
+                FROM traslados
+                WHERE id = %s
+                """,
+                (id,)
+            )
 
             return cursor.fetchone()
-        
+
         except IntegrityError as e:
 
-            if own_connection: conexion.rollback()
+            if own_connection:
+                conexion.rollback()
+
+            raise e
+
+        except Exception as e:
+
+            if own_connection:
+                conexion.rollback()
+
             raise e
 
         finally:
 
             cursor.close()
-            if own_connection: conexion.close()
+
+            if own_connection:
+                conexion.close()
 
 
     @staticmethod

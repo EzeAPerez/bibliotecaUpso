@@ -2,7 +2,7 @@ from repositories.traslados_repo import TrasladosRepository
 from mysql.connector import IntegrityError 
 from db.database import get_connection
 from services.reserva_services import ReservaService
-
+from services.ejemplar_services import EjemplarService
 class TrasladosService:
 
     @staticmethod
@@ -70,18 +70,33 @@ class TrasladosService:
                     f"el estado del traslado {id}"
                 )
             }
-
             if (
+                id_estado == 1
+                and traslado_modificado["id_reserva"] is not None
+            ):
+                reserva_response = (
+                    ReservaService.modificar_estado(
+                        traslado_modificado["id_reserva"],
+                        1,
+                        conexion=conexion
+                    )
+                )
+
+
+                response["reserva"] = reserva_response
+
+                response["mensaje"] = (
+                    "Se solicito el traslado y "
+                    "la reserva actualizada correctamente."
+                )
+            elif (
                 id_estado == 2
                 and traslado_modificado["id_reserva"] is not None
             ):
                 reserva_response = (
-                    ReservaService.actualizar_admin(
+                    ReservaService.modificar_estado(
                         traslado_modificado["id_reserva"],
-                        {
-                            "id_estado" : 5,
-                            "id_ejemplar" : traslado_modificado["id_ejemplar"]
-                         },
+                        5,
                         conexion=conexion
                     )
                 )
@@ -94,6 +109,31 @@ class TrasladosService:
                     "la reserva actualizada correctamente."
                 )
 
+            elif (
+                id_estado == 4
+            ):
+                reserva_response = None
+                if traslado_modificado["id_reserva"] is not None:
+                    reserva_response = (
+                        ReservaService.modificar_estado(
+                            traslado_modificado["id_reserva"],
+                            2,
+                            conexion=conexion
+                        )
+                    )
+
+                EjemplarService.modificar_sede(
+                    traslado_modificado["id_ejemplar"],
+                    traslado_modificado["id_sede_destino"],
+                    conexion
+                )
+
+                response["reserva"] = reserva_response
+
+                response["mensaje"] = (
+                    "El traslado fue confirmado y "
+                    "la reserva actualizada correctamente."
+                )
             elif (
                 id_estado == 3
                 and traslado_modificado["id_reserva"] is not None
@@ -146,14 +186,25 @@ class TrasladosService:
 
             conexion.start_transaction()
 
-            id_estado = data.pop("id_estado", None)
+            traslado_anterior = ( TrasladosService.obtener_por_id( id ) ) 
 
+            if not traslado_anterior: 
+                raise LookupError( "Traslado no encontrado." ) 
+            
+            reserva_id = traslado_anterior["id_reserva"] 
+            
+            nuevo_ejemplar = data.get("id_ejemplar") 
+            
+            id_estado = data.pop( "id_estado", None )
 
             result = TrasladosRepository.actualizar(
                 id,
                 data,
                 conexion=conexion
             )
+
+            if ( nuevo_ejemplar is not None and reserva_id is not None and nuevo_ejemplar != traslado_anterior["id_ejemplar"] ): 
+                ReservaService.actualizar_admin( reserva_id, { "id_ejemplar": nuevo_ejemplar }, conexion=conexion )
 
             response_estado = None
 
