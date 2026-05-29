@@ -48,6 +48,9 @@ class ReservaRepository:
             o.subtitulo,
             o.autor,
 
+            r.id_user, 
+            u.correo, 
+
             r.id_ejemplar,
             e.codigo_fisico,
 
@@ -66,6 +69,9 @@ class ReservaRepository:
         JOIN obras o 
             ON r.id_obra = o.id
 
+        JOIN userscp u
+            ON r.id_user = u.id
+            
         LEFT JOIN ejemplar e 
             ON r.id_ejemplar = e.id
 
