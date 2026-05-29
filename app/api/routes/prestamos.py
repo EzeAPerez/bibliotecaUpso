@@ -1,7 +1,7 @@
 from errno import errorcode
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query
-from models.prestamos import Prestamos, PrestamosUpdate, PrestamosCreate
+from models.prestamos import Prestamos, PrestamosUpdate, PrestamosCreate, PrestamosDetallado
 from typing import List
 from mysql.connector import IntegrityError, errorcode
 from repositories.prestamos_repo import PrestamosRepository
@@ -120,7 +120,7 @@ def eliminar_prestamo(
 
 @router.get(
     "", 
-    response_model=list[Prestamos],
+    response_model=list[PrestamosDetallado],
     tags=[router.tags[0]],
     summary="Obtener prestamos",
     description="Obtener todas los prestamos. Accesible para todos los usuarios."
@@ -137,7 +137,7 @@ def get_prestamos(
 
 @router.get(
     "/{id}",
-    response_model=Prestamos,
+    response_model=PrestamosDetallado,
     summary="Obtener un prestamo por ID",
     description="Obtener un prestmoa específica de la base de datos por su ID. Accesible para todos los administradores.",
     tags=[router.tags[0]]
@@ -156,7 +156,7 @@ def get_prestamo_id(
 @router.get(
     "/sedes/{id_sede}",
     status_code=status.HTTP_200_OK,
-    response_model=List[Prestamos],
+    response_model=List[PrestamosDetallado],
     summary="Obtener prestamos por sedes",
     description="Obtener todas los prestamos de una sede, con limite y numero de pagina. Accesible para todos los usuarios.",
     tags=[router.tags[0]]
@@ -172,7 +172,7 @@ def get_reserva_sede(
 @router.get(
     "/user/{id_user}",
     status_code=status.HTTP_200_OK,
-    response_model=List[Prestamos],
+    response_model=List[PrestamosDetallado],
     summary="Obtener prestamos por user",
     description="Obtener todos los prestamos de un usuario, con limite y numero de pagina. Accesible para todos los usuarios.",
     tags=[router.tags[0]]
@@ -188,7 +188,7 @@ def get_reserva_user(
 @router.get(
     "/me/",
     status_code=status.HTTP_200_OK,
-    response_model=List[Prestamos],
+    response_model=List[PrestamosDetallado],
     summary="Obtener prestamos por el usuario activo",
     description="Obtener todas las prestamos del usuario activo solicitante, con limite y numero de pagina. Accesible para todos los usuarios.",
     tags=[router.tags[0]]

@@ -6,6 +6,70 @@ class PrestamosRepository:
 
     @staticmethod
     def obtener(where_clauses=[], params=[], page=1, limit=10):
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+        
+        offset = (page - 1) * limit
+        where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        query= f"""
+        SELECT 
+            p.id, 
+
+            p.id_ejemplar,
+            o.titulo,
+            o.subtitulo,
+
+            p.id_reserva,
+
+            p.id_user,
+            u.nombre,
+            u.correo,
+
+            p.id_sede, 
+            s.nombre AS nombre_sede,
+
+            p.fecha_prestamo,
+            p.fecha_vencimiento,
+            p.fecha_devolucion,
+
+            p.id_estado,
+            es.estado AS nombre_estado
+
+            FROM prestamos p
+
+            LEFT JOIN ejemplar e
+                ON p.id_ejemplar = e.id
+
+            LEFT JOIN obras o
+                ON e.id_obra = o.id
+
+            JOIN userscp u
+                ON p.id_user = u.id
+                
+            JOIN sedes s 
+                ON p.id_sede = s.id
+
+            JOIN estado_prestamo es 
+                ON p.id_estado = es.id
+            
+            {where_sql}
+
+            ORDER BY p.id DESC
+
+            LIMIT %s OFFSET %s
+
+        """
+        try: 
+            cursor.execute(query, (*params, limit, offset))
+            return cursor.fetchall()
+        finally:
+            cursor.close()
+            conexion.close()
+
+
+    @staticmethod
+    def obtener_general(where_clauses=[], params=[], page=1, limit=10):
 
         conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)

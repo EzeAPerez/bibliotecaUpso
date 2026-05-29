@@ -34,3 +34,26 @@ class PrestamosCreate(SQLModel):
     fecha_vencimiento: date | None
     fecha_devolucion: date | None
     id_estado: int
+
+class PrestamosDetallado(SQLModel):
+    id: int
+
+    id_ejemplar: int
+    titulo: str
+    subtitulo: str
+
+    id_reserva: int | None
+    
+    id_user: int
+    nombre: str | None
+    correo: str | None
+
+    id_sede: int
+    nombre_sede: str
+
+    fecha_prestamo: date
+    fecha_vencimiento: date | None
+    fecha_devolucion: date | None
+
+    id_estado: int
+    nombre_estado: str
