@@ -104,3 +104,4 @@ class ObraDetallada(SQLModel):
     nombre_nivel_academico: Optional[str]
 
     areas: List[Area]
+    estado_disponibilidad: str

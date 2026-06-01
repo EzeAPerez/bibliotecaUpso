@@ -14,22 +14,96 @@ class ObraRepository:
         
         query = f"""
         SELECT 
-            o.id, o.id_tipo_material, tm.tipo AS tipo_material,
-            o.titulo, o.subtitulo, o.anio, o.autor,
-            o.isbn, o.edicion, o.tomo, o.editorial,
-            o.issn, o.volumen, o.numero,
-            o.institucion, o.nivel_academico, na.nombre AS nombre_nivel_academico,
-            at.id AS area_id, at.nombre AS area_nombre,
-            st.id AS subarea_id, st.nombre AS subarea_nombre
-        FROM obras o
-        JOIN tipo_material tm ON o.id_tipo_material = tm.id
-        JOIN nivel_academico na ON o.nivel_academico = na.id
-        LEFT JOIN obra_subarea_tematica ost ON o.id = ost.id_obra
-        LEFT JOIN subarea_tematica st ON ost.id_subarea = st.id
-        LEFT JOIN area_tematica at ON st.id_area_tematica = at.id
-        {where_sql}
-        ORDER BY o.id DESC
-        LIMIT %s OFFSET %s
+    o.id,
+    o.id_tipo_material,
+    tm.tipo AS tipo_material,
+
+    o.titulo,
+    o.subtitulo,
+    o.anio,
+    o.autor,
+
+    o.isbn,
+    o.edicion,
+    o.tomo,
+    o.editorial,
+
+    o.issn,
+    o.volumen,
+    o.numero,
+
+    o.institucion,
+    o.nivel_academico,
+    na.nombre AS nombre_nivel_academico,
+
+    at.id AS area_id,
+    at.nombre AS area_nombre,
+
+    st.id AS subarea_id,
+    st.nombre AS subarea_nombre,
+
+    COALESCE(ed.total_disponibles, 0) AS ejemplares_disponibles,
+
+    COALESCE(re.total_reservas_espera, 0) AS reservas_en_espera,
+
+    (
+        COALESCE(ed.total_disponibles, 0)
+        -
+        COALESCE(re.total_reservas_espera, 0)
+    ) AS disponibles_reales,
+
+    CASE
+        WHEN (
+            COALESCE(ed.total_disponibles, 0)
+            -
+            COALESCE(re.total_reservas_espera, 0)
+        ) > 0
+        THEN 'DISPONIBLE'
+        ELSE 'NO_DISPONIBLE'
+    END AS estado_disponibilidad
+
+FROM obras o
+
+JOIN tipo_material tm
+    ON o.id_tipo_material = tm.id
+
+JOIN nivel_academico na
+    ON o.nivel_academico = na.id
+
+LEFT JOIN obra_subarea_tematica ost
+    ON o.id = ost.id_obra
+
+LEFT JOIN subarea_tematica st
+    ON ost.id_subarea = st.id
+
+LEFT JOIN area_tematica at
+    ON st.id_area_tematica = at.id
+
+LEFT JOIN (
+    SELECT
+        id_obra,
+        COUNT(*) AS total_disponibles
+    FROM ejemplar
+    WHERE id_estado = 1
+    GROUP BY id_obra
+) ed
+    ON o.id = ed.id_obra
+
+LEFT JOIN (
+    SELECT
+        id_obra,
+        COUNT(*) AS total_reservas_espera
+    FROM reserva
+    WHERE id_estado = 1
+    GROUP BY id_obra
+) re
+    ON o.id = re.id_obra
+
+{where_sql}
+
+ORDER BY o.id DESC
+
+LIMIT %s OFFSET %s
         """
         
         try:
