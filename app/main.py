@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.routes import obras, area_tematica, subarea_tematica, obras_subareas, sedes, auth, auth_prueba, ejemplar, reserva, prestamos, traslados, nivel_academico, formato, tipo_ingreso
+from api.routes import obras, area_tematica, subarea_tematica, obras_subareas, sedes, auth, auth_prueba, ejemplar, reserva, prestamos, traslados, nivel_academico, formato, tipo_ingreso, restricciones, renovaciones
 
 app = FastAPI()
 
@@ -16,3 +16,5 @@ app.include_router(traslados.router)
 app.include_router(nivel_academico.router)
 app.include_router(formato.router)
 app.include_router(tipo_ingreso.router)
+app.include_router(restricciones.router)
+app.include_router(renovaciones.router)
